@@ -39,3 +39,11 @@ build/
 .DS_Store
 Thumbs.db
 /.audit
+
+# Testing
+.hypothesis
+.coverage
+verbose-run.log
+
+# Playwright MCP
+.playwright-mcp/
