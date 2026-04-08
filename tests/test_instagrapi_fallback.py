@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ig_scraper.errors import MediaDownloadError
-from ig_scraper.ig_comments import _comment_to_dict, _fetch_all_comments
+from ig_scraper.ig_comments import _comment_to_dict
 from ig_scraper.ig_config import (
     COMMENTS_PAGE_SIZE,
     COMMENT_PAGE_RETRIES,
@@ -76,8 +76,6 @@ class TestRetryWithBackoff:
 
     def test_raises_retry_exhausted_when_all_attempts_fail(self):
         """Test that _RetryExhaustedError is raised after all retries."""
-        from ig_scraper.ig_retry import _RetryExhaustedError
-
         call_count = {"n": 0}
 
         def fn():
@@ -188,7 +186,8 @@ class TestResourceToDict:
 class TestDownloadMedia:
     """Tests for _download_media using mocked client."""
 
-    @patch("ig_scraper.ig_media.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
     @patch("ig_scraper.ig_config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_downloads_photo_success(self, mock_sleep, tmp_path):
         """Test successful photo download returns filename."""
@@ -205,7 +204,8 @@ class TestDownloadMedia:
         assert len(result) == 1
         mock_client.photo_download.assert_called_once_with(99999, folder=tmp_path)
 
-    @patch("ig_scraper.ig_media.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
     @patch("ig_scraper.ig_config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_downloads_album_success(self, mock_sleep, tmp_path):
         """Test album download returns multiple filenames."""
@@ -225,7 +225,8 @@ class TestDownloadMedia:
         assert len(result) == 2
         mock_client.album_download.assert_called_once_with(88888, folder=tmp_path)
 
-    @patch("ig_scraper.ig_media.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
     @patch("ig_scraper.ig_config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_downloads_clip_success(self, mock_sleep, tmp_path):
         """Test clip (reel) download with product_type='clips'."""
@@ -242,7 +243,8 @@ class TestDownloadMedia:
         assert len(result) == 1
         mock_client.clip_download.assert_called_once_with(77777, folder=tmp_path)
 
-    @patch("ig_scraper.ig_media.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
     @patch("ig_scraper.ig_config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_download_raises_media_download_error_after_retries(self, mock_sleep, tmp_path):
         """Test MediaDownloadError raised after exhausting retries."""
@@ -259,7 +261,8 @@ class TestDownloadMedia:
 
         assert mock_client.photo_download.call_count == MEDIA_DOWNLOAD_RETRIES
 
-    @patch("ig_scraper.ig_media.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
+    @patch("ig_scraper.ig_retry.time.sleep")
     @patch("ig_scraper.ig_config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_download_retries_on_oserror(self, mock_sleep, tmp_path):
         """Test that OSError triggers retry before success."""
