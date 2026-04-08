@@ -9,11 +9,8 @@ import pytest
 
 from ig_scraper.analysis import handle_dir, post_dir
 from ig_scraper.cli import HANDLES_FILE, load_handles, selected_handles
-from ig_scraper.run_scrape import (
-    ACCOUNT_DIR,
-    ROOT,
-    write_post_artifacts,
-)
+from ig_scraper.paths import ACCOUNT_DIR, ROOT
+from ig_scraper.run_scrape import write_post_artifacts
 
 
 class TestPathConstants:
@@ -188,7 +185,7 @@ class TestWritePostArtifacts:
         handle = "@testuser"
         posts = [
             {
-                "shortCode": "POST001",
+                "short_code": "POST001",
                 "caption": "Test",
                 "id": "1",
                 "url": "https://instagram.com/p/POST001",
@@ -199,7 +196,7 @@ class TestWritePostArtifacts:
         ]
         comments = [
             {
-                "postUrl": "https://instagram.com/p/POST001",
+                "post_url": "https://instagram.com/p/POST001",
                 "text": "Great!",
             }
         ]
@@ -217,7 +214,7 @@ class TestWritePostArtifacts:
         handle = "@user"
         posts = [
             {
-                "shortCode": "CAP123",
+                "short_code": "CAP123",
                 "caption": "My great caption",
                 "id": "99",
                 "url": "https://instagram.com/p/CAP123",

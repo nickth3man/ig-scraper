@@ -20,17 +20,6 @@ from ig_scraper.ig_retry import _RetryExhaustedError, _retry_with_backoff
 
 # ----- helpers for mock logging callbacks -----
 
-
-def make_log_attempt_counter():
-    """Return a (call_count, last_args) tracker suitable for log_attempt callback."""
-    call_log = []
-
-    def track(attempt: int, exc: Exception, wait_seconds: float):
-        call_log.append((attempt, exc, wait_seconds))
-
-    return track, call_log
-
-
 # ----- Test _retry_with_backoff -----
 
 
@@ -309,12 +298,12 @@ class TestCommentToDict:
 
         assert result["id"] == "12345"
         assert result["text"] == "Great photo!"
-        assert result["ownerUsername"] == "commenter"
-        assert result["likesCount"] == 15
-        assert result["repliesCount"] == 2
+        assert result["owner_username"] == "commenter"
+        assert result["likes_count"] == 15
+        assert result["replies_count"] == 2
         # _comment_to_dict does not include 'replies' key (not in the actual contract)
         assert "replies" not in result
-        assert result["postUrl"] == "https://instagram.com/p/ABC123"
+        assert result["post_url"] == "https://instagram.com/p/ABC123"
 
     def test_comment_to_dict_does_not_include_replies_key(self):
         """Test that _comment_to_dict output does not include a 'replies' key."""
@@ -348,9 +337,9 @@ class TestCommentToDict:
 
         result = _comment_to_dict(mock_comment, "https://example.com/p/999")
 
-        assert result["ownerUsername"] == ""
-        assert result["ownerFullName"] == ""
-        assert result["ownerProfilePicUrl"] == ""
+        assert result["owner_username"] == ""
+        assert result["owner_full_name"] == ""
+        assert result["owner_profile_pic_url"] == ""
 
 
 class TestRetryConstants:
@@ -371,3 +360,13 @@ class TestRetryConstants:
     def test_request_pause_seconds_is_025(self):
         """Verify REQUEST_PAUSE_SECONDS is 0.25."""
         assert REQUEST_PAUSE_SECONDS == 0.25
+
+
+def make_log_attempt_counter():
+    """Return a (call_count, last_args) tracker suitable for log_attempt callback."""
+    call_log = []
+
+    def track(attempt: int, exc: Exception, wait_seconds: float):
+        call_log.append((attempt, exc, wait_seconds))
+
+    return track, call_log
