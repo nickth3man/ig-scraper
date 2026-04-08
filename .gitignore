@@ -1,4 +1,7 @@
+# Environment variables and local secrets
 .env
+.env.*
+!.env.example
 cookies.txt
 allcookies.txt
 data/cookies.txt
@@ -8,3 +11,31 @@ data/allcookies.txt
 data/**
 !data/_TEMPLATE.md
 !data/README.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# UV
+.venv/
+
+# Ruff
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+/.audit

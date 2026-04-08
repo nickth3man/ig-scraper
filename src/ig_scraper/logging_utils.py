@@ -1,16 +1,26 @@
+"""Structured logging utilities for the ig-scraper package."""
+
 from __future__ import annotations
 
-from datetime import datetime
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 
-LOGGER_NAME = "found42.scrape"
+LOGGER_NAME = "ig_scraper"
 
 
 def _write_run_divider(log_file: Path) -> None:
+    """Write a visual divider banner to the log file marking the start of a new run.
+
+    Creates the log file's parent directory if needed. The divider includes a
+    timestamp and visual separators for easy scanning of log output.
+
+    Args:
+        log_file: Path to the log file where the divider should be written.
+    """
     log_file.parent.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
     divider = "\n" + "=" * 100 + "\n" + f"RUN START | {timestamp}\n" + "=" * 100 + "\n"
@@ -18,9 +28,8 @@ def _write_run_divider(log_file: Path) -> None:
         handle.write(divider)
 
 
-def configure_logging(
-    level: int = logging.INFO, log_file: Path | None = None
-) -> logging.Logger:
+def configure_logging(level: int = logging.INFO, log_file: Path | None = None) -> logging.Logger:
+    """Configure the root ig-scraper logger with a stream handler and optional file handler."""
     logger = logging.getLogger(LOGGER_NAME)
 
     formatter = logging.Formatter(
@@ -29,8 +38,7 @@ def configure_logging(
     )
 
     has_stream_handler = any(
-        isinstance(handler, logging.StreamHandler)
-        and not isinstance(handler, logging.FileHandler)
+        isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
         for handler in logger.handlers
     )
     if not has_stream_handler:
@@ -47,9 +55,7 @@ def configure_logging(
         )
         if not has_file_handler:
             _write_run_divider(resolved_log_file)
-            file_handler = logging.FileHandler(
-                resolved_log_file, mode="a", encoding="utf-8"
-            )
+            file_handler = logging.FileHandler(resolved_log_file, mode="a", encoding="utf-8")
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
 
@@ -59,6 +65,7 @@ def configure_logging(
 
 
 def get_logger(name: str | None = None) -> logging.Logger:
+    """Return the ig-scraper logger, configuring it if it has not been set up yet."""
     configure_logging()
     if not name:
         return logging.getLogger(LOGGER_NAME)
@@ -66,6 +73,7 @@ def get_logger(name: str | None = None) -> logging.Logger:
 
 
 def format_kv(**kwargs: Any) -> str:
+    """Format keyword arguments as a pipe-delimited *key=value* string for structured log lines."""
     parts: list[str] = []
     for key, value in kwargs.items():
         if value is None:
