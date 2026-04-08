@@ -22,17 +22,9 @@ jobs:
       - name: Sync dependencies
         run: uv sync --locked --dev
 
-      - name: Ruff lint
-        run: uv run ruff check .
 
-      - name: Ruff format check
-        run: uv run ruff format --check .
-
-      - name: MyPy
-        run: uv run mypy src/
-
-      - name: Pytest
-        run: uv run pytest
+      - name: All checks (lint, format, types, tests, file length)
+        run: uv run python scripts/check_all.py
 
       - name: pip-audit
         run: uv run pip-audit

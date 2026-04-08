@@ -19,6 +19,12 @@ dev = [
     "mypy>=1.15",
     "ruff>=0.15.9",
     "pip-audit>=2.8.0",
+    "ty>=0.0.29",
+    "hypothesis>=6.100",
+    "polyfactory>=2.0",
+    "inline-snapshot>=0.20",
+    "pytest-regressions>=2.0",
+    "pytest-bdd>=8.0",
 ]
 
 [build-system]
@@ -62,6 +68,10 @@ ignore = [
     "S101",    # assert allowed in tests
     "ARG",     # unused arguments common in fixtures
 ]
+"scripts/**/*.py" = [
+    "T201",    # print is the intended output mechanism for scripts
+    "PTH123",  # open() is fine in scripts
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -90,9 +100,6 @@ no_implicit_optional = true
 disallow_incomplete_defs = true
 ignore_missing_imports = false
 
-[[tool.mypy.overrides]]
-module = "instagrapi.*"
-ignore_missing_imports = true
 
 
 [tool.pytest.ini_options]
@@ -114,6 +121,13 @@ filterwarnings = [
     "error",
     "ignore::DeprecationWarning:instagrapi.*",
 ]
+
+[[tool.mypy.overrides]]
+module = ["instagrapi.*", "hypothesis.*", "polyfactory.*", "inline_snapshot.*", "pytest_regressions.*", "pytest_bdd.*"]
+ignore_missing_imports = true
+
+[tool.inline-snapshot]
+shortcuts = {fix = ["create", "fix"], review = "review"}
 
 [tool.coverage.run]
 source = ["src/ig_scraper"]

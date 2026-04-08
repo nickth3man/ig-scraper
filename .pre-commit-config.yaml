@@ -9,25 +9,11 @@ repos:
       - id: check-yaml
       - id: check-merge-conflict
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.9
-    hooks:
-      - id: ruff-check
-        args: [--fix]
-      - id: ruff-format
-
   - repo: local
     hooks:
-      - id: mypy
-        name: mypy
-        entry: uv run mypy src/
-        language: system
-        types: [python]
-        pass_filenames: false
-
-      - id: check-file-length
-        name: Check Python file line count ≤ 200
-        entry: uv run python scripts/check_file_length.py
+      - id: check-all
+        name: check-all (lint, format, types, tests, file length)
+        entry: uv run python scripts/check_all.py
         language: system
         types: [python]
         pass_filenames: false
