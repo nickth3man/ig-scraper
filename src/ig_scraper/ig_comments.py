@@ -7,6 +7,7 @@ from typing import Any
 from ig_scraper.ig_config import COMMENTS_PAGE_SIZE, REQUEST_PAUSE_SECONDS, _sleep
 from ig_scraper.ig_retry import _RetryExhaustedError, retry_on
 from ig_scraper.logging_utils import format_kv, get_logger
+from ig_scraper.models import Comment
 
 
 logger = get_logger("instagrapi")
@@ -14,18 +15,7 @@ logger = get_logger("instagrapi")
 
 def _comment_to_dict(comment: Any, media_url: str) -> dict[str, Any]:
     """Convert an instagrapi Comment object to a plain dictionary for JSON serialization."""
-    return {
-        "postUrl": media_url,
-        "commentUrl": f"{media_url}#comment-{comment.pk}",
-        "id": str(comment.pk),
-        "text": comment.text or "",
-        "ownerUsername": comment.user.username if comment.user else "",
-        "ownerFullName": comment.user.full_name if comment.user else "",
-        "ownerProfilePicUrl": str(comment.user.profile_pic_url or "") if comment.user else "",
-        "timestamp": comment.created_at_utc.isoformat() if comment.created_at_utc else "",
-        "likesCount": int(comment.like_count or 0),
-        "repliesCount": int(getattr(comment, "child_comment_count", 0) or 0),
-    }
+    return Comment.from_instagrapi_comment(comment, media_url).to_dict()
 
 
 @retry_on(RuntimeError, ConnectionError, max_attempts=3, wait_base_seconds=REQUEST_PAUSE_SECONDS)
@@ -34,9 +24,13 @@ def _fetch_comment_page(
 ) -> tuple[list[Any], str | None]:
     """Fetch a single page of comments with built-in retry."""
     if min_id is None:
-        result: tuple[list[Any], str | None] = client.media_comments_chunk(media_id, max_amount=page_size)
+        result: tuple[list[Any], str | None] = client.media_comments_chunk(
+            media_id, max_amount=page_size
+        )
         return result
-    result_with_min_id: tuple[list[Any], str | None] = client.media_comments_chunk(media_id, max_amount=page_size, min_id=min_id)
+    result_with_min_id: tuple[list[Any], str | None] = client.media_comments_chunk(
+        media_id, max_amount=page_size, min_id=min_id
+    )
     return result_with_min_id
 
 

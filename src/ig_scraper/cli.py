@@ -8,6 +8,7 @@ import time
 
 from ig_scraper.errors import IgScraperError
 from ig_scraper.logging_utils import configure_logging, format_kv, get_logger
+from ig_scraper.paths import HANDLES_FILE, VERBOSE_LOG_FILE
 from ig_scraper.run_scrape import (
     cleanup_removed_handle_dirs,
     initialize_readme,
@@ -17,10 +18,6 @@ from ig_scraper.run_scrape import (
 
 
 logger = get_logger("runner")
-
-ROOT = __import__("pathlib").Path(__file__).resolve().parents[2]
-VERBOSE_LOG_FILE = ROOT / "verbose-run.log"
-HANDLES_FILE = ROOT / "resources" / "instagram_handles.md"
 
 
 def load_handles() -> list[str]:

@@ -41,8 +41,8 @@ class Profile:
             posts_count=getattr(user, "media_count", 0),
             verified=getattr(user, "is_verified", False),
             is_business_account=getattr(user, "is_business", False),
-            profile_pic_url=str(getattr(user, "profile_pic_url", "")),
-            external_url=str(getattr(user, "external_url", "")),
+            profile_pic_url=str(getattr(user, "profile_pic_url", "") or ""),
+            external_url=str(getattr(user, "external_url", "") or ""),
             _method=method,
         )
 
@@ -123,6 +123,9 @@ class Post:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         d = asdict(self)
+        # Filter private fields
+        d = {k: v for k, v in d.items() if not k.startswith("_")}
+        # Convert datetime
         d["taken_at"] = (
             self.taken_at.isoformat()
             if isinstance(self.taken_at, datetime)
@@ -160,7 +163,7 @@ class Comment:
             owner_username=getattr(user, "username", "") if user else "",
             owner_full_name=getattr(user, "full_name", "") if user else "",
             owner_profile_pic_url=str(getattr(user, "profile_pic_url", "")) if user else "",
-            timestamp=getattr(comment, "created_at_utc", ""),
+            timestamp=str(getattr(comment, "created_at_utc", "")),
             likes_count=int(getattr(comment, "like_count", 0) or 0),
             replies_count=int(getattr(comment, "child_comment_count", 0) or 0),
         )

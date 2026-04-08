@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import re
 import time
-from pathlib import Path
 
 from ig_scraper.analysis import (
-    build_analysis_markdown,
     clean_handle,
     ensure_swipes_dir,
     get_post_url,
@@ -16,16 +14,13 @@ from ig_scraper.analysis import (
     write_json,
     write_text,
 )
+from ig_scraper.analysis_render import build_analysis_markdown
 from ig_scraper.instagrapi_fallback import fetch_profile_posts_and_comments
 from ig_scraper.logging_utils import format_kv, get_logger
+from ig_scraper.paths import ACCOUNT_DIR, README_FILE
 
 
 logger = get_logger("runner")
-
-ROOT = Path(__file__).resolve().parents[2]
-ACCOUNT_DIR = ROOT / "data" / "accounts"
-DATA_DIR = ROOT / "data"
-README_FILE = DATA_DIR / "README.md"
 
 
 def initialize_readme(handles: list[str]) -> None:
@@ -97,7 +92,8 @@ def write_post_artifacts(handle: str, posts: list[dict], comments: list[dict]) -
     )
     comments_by_post_url: dict[str, list[dict]] = {}
     for comment in comments:
-        comments_by_post_url.setdefault(str(comment.get("postUrl") or ""), []).append(comment)
+        post_url_key = str(comment.get("post_url") or comment.get("postUrl") or "")
+        comments_by_post_url.setdefault(post_url_key, []).append(comment)
 
     for index, post in enumerate(posts, start=1):
         folder = post_dir(ACCOUNT_DIR, handle, index, post)
@@ -108,7 +104,7 @@ def write_post_artifacts(handle: str, posts: list[dict], comments: list[dict]) -
             format_kv(
                 handle=handle,
                 progress=f"{index}/{len(posts)}",
-                shortcode=post.get("shortCode") or post.get("id"),
+                shortcode=post.get("short_code") or post.get("id"),
                 folder=folder,
                 comment_count=len(post_comments),
                 media_files=len(post.get("media_files") or []),
