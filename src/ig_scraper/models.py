@@ -1,4 +1,5 @@
 """Typed dataclass models for Instagram scraping data (Profile, Post, Comment)."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -9,6 +10,7 @@ from typing import Any
 @dataclass
 class Profile:
     """Instagram user profile information."""
+
     id: str
     username: str
     full_name: str
@@ -30,20 +32,25 @@ class Profile:
     def from_instagrapi_user(cls, user: Any, method: str = "instagrapi") -> Profile:
         """Create Profile from instagrapi User object."""
         return cls(
-            id=str(getattr(user, "pk", "")), username=getattr(user, "username", ""),
-            full_name=getattr(user, "full_name", ""), biography=getattr(user, "biography", ""),
+            id=str(getattr(user, "pk", "")),
+            username=getattr(user, "username", ""),
+            full_name=getattr(user, "full_name", ""),
+            biography=getattr(user, "biography", ""),
             followers_count=getattr(user, "follower_count", 0),
             follows_count=getattr(user, "following_count", 0),
-            posts_count=getattr(user, "media_count", 0), verified=getattr(user, "is_verified", False),
+            posts_count=getattr(user, "media_count", 0),
+            verified=getattr(user, "is_verified", False),
             is_business_account=getattr(user, "is_business", False),
             profile_pic_url=str(getattr(user, "profile_pic_url", "")),
-            external_url=str(getattr(user, "external_url", "")), _method=method,
+            external_url=str(getattr(user, "external_url", "")),
+            _method=method,
         )
 
 
 @dataclass
 class PostResource:
     """Media resource (image/video) within a post."""
+
     pk: str
     media_type: int
     thumbnail_url: str
@@ -53,6 +60,7 @@ class PostResource:
 @dataclass
 class Post:
     """Instagram post/media item."""
+
     id: str
     pk: str
     short_code: str
@@ -86,32 +94,41 @@ class Post:
         url = f"https://www.instagram.com/{kind}/{code}/"
         resources = [
             PostResource(
-                pk=str(getattr(r, "pk", "")), media_type=int(getattr(r, "media_type", 0)),
+                pk=str(getattr(r, "pk", "")),
+                media_type=int(getattr(r, "media_type", 0)),
                 thumbnail_url=str(getattr(r, "thumbnail_url", "")),
                 video_url=str(getattr(r, "video_url", "")),
             )
             for r in getattr(media, "resources", [])
         ]
         return cls(
-            id=str(getattr(media, "pk", "")), pk=str(getattr(media, "pk", "")),
-            short_code=code, url=url,
+            id=str(getattr(media, "pk", "")),
+            pk=str(getattr(media, "pk", "")),
+            short_code=code,
+            url=url,
             type=str(getattr(media, "product_type", "") or getattr(media, "media_type", "")),
             caption=getattr(media, "caption_text", "") or "",
             comment_count=getattr(media, "comment_count", 0) or 0,
             like_count=getattr(media, "like_count", 0) or 0,
-            taken_at=getattr(media, "taken_at", None), owner_username=username,
-            owner_full_name=user_full_name, owner_id=str(user_pk),
+            taken_at=getattr(media, "taken_at", None),
+            owner_username=username,
+            owner_full_name=user_full_name,
+            owner_id=str(user_pk),
             video_url=str(getattr(media, "video_url", "")),
             thumbnail_url=str(getattr(media, "thumbnail_url", "")),
-            is_video=getattr(media, "media_type", 0) == 2, resources=resources,
+            is_video=getattr(media, "media_type", 0) == 2,
+            resources=resources,
         )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         d = asdict(self)
         d["taken_at"] = (
-            self.taken_at.isoformat() if isinstance(self.taken_at, datetime)
-            else str(self.taken_at) if self.taken_at else ""
+            self.taken_at.isoformat()
+            if isinstance(self.taken_at, datetime)
+            else str(self.taken_at)
+            if self.taken_at
+            else ""
         )
         return d
 
@@ -119,6 +136,7 @@ class Post:
 @dataclass
 class Comment:
     """Instagram comment on a post."""
+
     post_url: str
     comment_url: str
     id: str
@@ -137,7 +155,8 @@ class Comment:
         return cls(
             post_url=media_url,
             comment_url=f"{media_url}#comment-{getattr(comment, 'pk', '')}",
-            id=str(getattr(comment, "pk", "")), text=getattr(comment, "text", "") or "",
+            id=str(getattr(comment, "pk", "")),
+            text=getattr(comment, "text", "") or "",
             owner_username=getattr(user, "username", "") if user else "",
             owner_full_name=getattr(user, "full_name", "") if user else "",
             owner_profile_pic_url=str(getattr(user, "profile_pic_url", "")) if user else "",

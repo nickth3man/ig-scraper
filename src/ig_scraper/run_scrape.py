@@ -80,6 +80,7 @@ def initialize_readme(handles: list[str]) -> None:
         )
     README_FILE.write_text(text, encoding="utf-8")
 
+
 def cleanup_removed_handle_dirs(handles: list[str]) -> None:
     """Log a notice that destructive cleanup is intentionally skipped."""
     logger.info(
@@ -191,6 +192,7 @@ def process_handle(handle: str, max_posts: int) -> str:
         ),
     )
     return method
+
 
 def update_readme_status(handle: str, analysis: str, access: str, notes: str = "") -> None:
     """Update the README status row for *handle* with the latest analysis/access result."""

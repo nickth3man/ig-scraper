@@ -34,8 +34,10 @@ def _fetch_comment_page(
 ) -> tuple[list[Any], str | None]:
     """Fetch a single page of comments with built-in retry."""
     if min_id is None:
-        return client.media_comments_chunk(media_id, max_amount=page_size)
-    return client.media_comments_chunk(media_id, max_amount=page_size, min_id=min_id)
+        result: tuple[list[Any], str | None] = client.media_comments_chunk(media_id, max_amount=page_size)
+        return result
+    result_with_min_id: tuple[list[Any], str | None] = client.media_comments_chunk(media_id, max_amount=page_size, min_id=min_id)
+    return result_with_min_id
 
 
 def _fetch_all_comments(client: Any, media_id: str, media_url: str) -> list[dict[str, Any]]:

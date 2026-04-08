@@ -3,6 +3,7 @@
 
 from pathlib import Path
 
+
 MAX_LINES = 200
 SRC_DIR = Path("src/ig_scraper")
 

@@ -20,9 +20,12 @@ from ig_scraper.analysis_io import (
 )
 
 
-def build_analysis_markdown(handle: str, posts: list[dict[str, Any]], comments: list[dict[str, Any]]) -> str:
+def build_analysis_markdown(
+    handle: str, posts: list[dict[str, Any]], comments: list[dict[str, Any]]
+) -> str:
     """Build a full account-analysis markdown document. Delegates to analysis_render."""
     from ig_scraper.analysis_render import build_analysis_markdown as _build
+
     return _build(handle, posts, comments)
 
 
