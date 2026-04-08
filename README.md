@@ -114,7 +114,7 @@ uv run ruff format .
 uv run mypy src/
 
 # Run all checks
-uv run ruff check . && uv run mypy src/ && uv run pytest
+uv run python scripts/check_all.py
 ```
 
 ### Project Structure
@@ -198,7 +198,7 @@ Three-tier testing approach:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run tests and linting (`uv run ruff check . && uv run pytest`)
+4. Run all checks (`uv run python scripts/check_all.py`)
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request

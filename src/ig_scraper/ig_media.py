@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,25 @@ def _perform_media_download(client: Any, media: Any, target_dir: Path) -> list[s
     Handles photos, videos, albums (media_type 8), and clips (product_type 'clips').
     Raises OSError or RuntimeError on failure for retry.
     """
+    download_kind = (
+        "album"
+        if media.media_type == 8
+        else "photo"
+        if media.media_type == 1
+        else "clip"
+        if getattr(media, "product_type", "") == "clips"
+        else "video"
+    )
+    logger.info(
+        "Starting media download via instagrapi | %s",
+        format_kv(
+            shortcode=media.code,
+            media_pk=media.pk,
+            download_kind=download_kind,
+            target_dir=target_dir,
+        ),
+    )
+    t0 = time.perf_counter()
     if media.media_type == 8:
         paths = client.album_download(media.pk, folder=target_dir)
     elif media.media_type == 1:
@@ -50,8 +70,26 @@ def _perform_media_download(client: Any, media: Any, target_dir: Path) -> list[s
         paths = [Path(client.clip_download(media.pk, folder=target_dir))]
     else:
         paths = [client.video_download(media.pk, folder=target_dir)]
-
-    return [Path(path).name for path in paths if path]
+    elapsed = round(time.perf_counter() - t0, 3)
+    filenames = [Path(path).name for path in paths if path]
+    file_sizes = {}
+    for path in paths:
+        if path:
+            p = Path(path) if not isinstance(path, Path) else path
+            if p.exists():
+                file_sizes[p.name] = f"{p.stat().st_size / 1024:.1f}KB"
+    logger.info(
+        "Instagrapi download call returned | %s",
+        format_kv(
+            shortcode=media.code,
+            download_kind=download_kind,
+            file_count=len(filenames),
+            filenames=filenames,
+            file_sizes=file_sizes,
+            elapsed_seconds=elapsed,
+        ),
+    )
+    return filenames
 
 
 def _download_media(client: Any, media: Any, target_dir: Path) -> list[str]:
@@ -63,6 +101,10 @@ def _download_media(client: Any, media: Any, target_dir: Path) -> list[str]:
     Raises:
         MediaDownloadError: If all download attempts fail after exhausting retries.
     """
+    logger.info(
+        "Creating media target directory | %s",
+        format_kv(shortcode=media.code, target_dir=target_dir),
+    )
     target_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(
@@ -77,12 +119,24 @@ def _download_media(client: Any, media: Any, target_dir: Path) -> list[str]:
         ),
     )
 
+    t0 = time.perf_counter()
     try:
         filenames = _perform_media_download(client, media, target_dir)
+        total_elapsed = round(time.perf_counter() - t0, 3)
         logger.info(
             "Media download complete | %s",
-            format_kv(shortcode=media.code, file_count=len(filenames), files=filenames),
+            format_kv(
+                shortcode=media.code,
+                file_count=len(filenames),
+                files=filenames,
+                total_elapsed_seconds=total_elapsed,
+            ),
         )
         return filenames
     except _RetryExhaustedError as exc:
+        total_elapsed = round(time.perf_counter() - t0, 3)
+        logger.warning(
+            "Media download exhausted retries | %s",
+            format_kv(shortcode=media.code, elapsed_seconds=total_elapsed, error=exc),
+        )
         raise MediaDownloadError(f"Media download failed for {media.code}: {exc}") from exc
