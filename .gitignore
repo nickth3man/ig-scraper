@@ -23,6 +23,13 @@ dist/
 build/
 .eggs/
 
+# Type checking cache
+.mypy_cache/
+.ty/
+
+# Test runner cache
+.pytest_cache/
+
 # UV
 .venv/
 
@@ -41,9 +48,25 @@ Thumbs.db
 /.audit
 
 # Testing
-.hypothesis
+.hypothesis/
 .coverage
-verbose-run.log
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Logs
+*.log
+
+# Serialized data
+*.pkl
+*.pickle
+
+# Instagrapi session files
+settings.json
 
 # Playwright MCP
 .playwright-mcp/
+
+# AI tooling
+.qodo/
+.sisyphus/
