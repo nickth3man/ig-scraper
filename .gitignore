@@ -1,0 +1,10 @@
+.env
+cookies.txt
+allcookies.txt
+data/cookies.txt
+data/allcookies.txt
+
+# Ignore all data/ contents except tracked files
+data/**
+!data/_TEMPLATE.md
+!data/README.md
