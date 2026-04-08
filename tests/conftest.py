@@ -14,6 +14,13 @@ if str(src_path) not in sys.path:
 
 import pytest  # noqa: E402
 
+from tests.factories import (  # noqa: E402
+    CommentFactory,
+    PostFactory,
+    PostResourceFactory,
+    ProfileFactory,
+)
+
 
 @pytest.fixture
 def sample_captions():
@@ -35,3 +42,30 @@ def sample_texts():
         "Data science requires Python skills",
         "Great Python libraries for science",
     ]
+
+
+# --- Polyfactory fixtures ---
+
+
+@pytest.fixture
+def profile_factory():
+    """Provide the ProfileFactory class for building test profiles."""
+    return ProfileFactory
+
+
+@pytest.fixture
+def post_factory():
+    """Provide the PostFactory class for building test posts."""
+    return PostFactory
+
+
+@pytest.fixture
+def comment_factory():
+    """Provide the CommentFactory class for building test comments."""
+    return CommentFactory
+
+
+@pytest.fixture
+def resource_factory():
+    """Provide the PostResourceFactory class for building test resources."""
+    return PostResourceFactory

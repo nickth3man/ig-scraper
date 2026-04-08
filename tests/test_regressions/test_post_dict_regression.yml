@@ -1,0 +1,23 @@
+caption: 'Regression test caption #test'
+comment_count: 5
+from_url: https://www.instagram.com/reguser/
+hashtags:
+- '#test'
+id: reg_post_001
+is_video: false
+like_count: 50
+media_files: []
+mentions:
+- '@friend'
+owner_full_name: Reg User
+owner_id: '123'
+owner_username: reguser
+pk: reg_post_001
+post_folder: posts/001_REG001
+resources: []
+short_code: REG001
+taken_at: '2024-06-15T12:00:00'
+thumbnail_url: https://example.com/thumb.jpg
+type: image
+url: https://www.instagram.com/p/REG001/
+video_url: ''
