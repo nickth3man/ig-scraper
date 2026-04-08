@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from ig_scraper.ig_config import COMMENTS_PAGE_SIZE, REQUEST_PAUSE_SECONDS, _sleep
@@ -23,15 +24,29 @@ def _fetch_comment_page(
     client: Any, media_id: str, min_id: str | None = None, page_size: int = 250
 ) -> tuple[list[Any], str | None]:
     """Fetch a single page of comments with built-in retry."""
+    logger.info(
+        "API call: media_comments_chunk starting | %s",
+        format_kv(media_id=media_id, min_id=min_id or "initial", page_size=page_size),
+    )
+    t0 = time.perf_counter()
     if min_id is None:
         result: tuple[list[Any], str | None] = client.media_comments_chunk(
             media_id, max_amount=page_size
         )
-        return result
-    result_with_min_id: tuple[list[Any], str | None] = client.media_comments_chunk(
-        media_id, max_amount=page_size, min_id=min_id
+    else:
+        result = client.media_comments_chunk(media_id, max_amount=page_size, min_id=min_id)
+    elapsed = round(time.perf_counter() - t0, 3)
+    chunk_count = len(result[0]) if result[0] else 0
+    logger.info(
+        "API call: media_comments_chunk returned | %s",
+        format_kv(
+            media_id=media_id,
+            comments_in_chunk=chunk_count,
+            next_cursor=result[1] or "end",
+            elapsed_seconds=elapsed,
+        ),
     )
-    return result_with_min_id
+    return result
 
 
 def _fetch_all_comments(client: Any, media_id: str, media_url: str) -> list[dict[str, Any]]:
@@ -54,9 +69,15 @@ def _fetch_all_comments(client: Any, media_id: str, media_url: str) -> list[dict
                 page_size=COMMENTS_PAGE_SIZE,
             ),
         )
+        t0 = time.perf_counter()
         try:
             comments_chunk, next_min_id = _fetch_comment_page(
                 client, media_id, min_id=min_id, page_size=COMMENTS_PAGE_SIZE
+            )
+            page_elapsed = round(time.perf_counter() - t0, 3)
+            logger.info(
+                "Comment page fetch completed | %s",
+                format_kv(media_id=media_id, page=page, elapsed_seconds=page_elapsed),
             )
         except _RetryExhaustedError as exc:
             logger.warning(
@@ -72,21 +93,36 @@ def _fetch_all_comments(client: Any, media_id: str, media_url: str) -> list[dict
             )
             break
 
+        t_convert = time.perf_counter()
         all_comments.extend(_comment_to_dict(comment, media_url) for comment in comments_chunk)
+        convert_elapsed = round(time.perf_counter() - t_convert, 3)
         logger.info(
-            "Comment page fetched | %s",
+            "Comment page fetched and converted | %s",
             format_kv(
                 media_id=media_id,
                 page=page,
                 page_comment_count=len(comments_chunk),
                 total_comments=len(all_comments),
+                convert_seconds=convert_elapsed,
                 next_cursor=next_min_id or "end",
             ),
         )
 
         if not next_min_id or next_min_id == min_id:
+            logger.info(
+                "Comment pagination cursor exhausted | %s",
+                format_kv(
+                    media_id=media_id,
+                    page=page,
+                    reason="no_next_cursor" if not next_min_id else "cursor_unchanged",
+                ),
+            )
             break
 
+        logger.info(
+            "Advancing comment cursor | %s",
+            format_kv(media_id=media_id, old_cursor=min_id, new_cursor=next_min_id),
+        )
         min_id = next_min_id
         _sleep("comment pagination backoff")
 

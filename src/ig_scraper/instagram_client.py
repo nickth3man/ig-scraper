@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -50,9 +51,15 @@ def get_instagram_client() -> Client:
 
     try:
         logger.info("Authenticating via session id")
+        t0_login = time.perf_counter()
         client.login_by_sessionid(sessionid)
-        logger.info("Session login accepted; validating account access")
+        elapsed_login = round(time.perf_counter() - t0_login, 3)
+        logger.info("Session login accepted | %s", format_kv(elapsed_seconds=elapsed_login))
+        logger.info("Validating account access")
+        t0_account = time.perf_counter()
         account = client.account_info()
+        elapsed_account = round(time.perf_counter() - t0_account, 3)
+        logger.info("account_info() returned | %s", format_kv(elapsed_seconds=elapsed_account))
         logger.info(
             "Authenticated successfully | %s",
             format_kv(username=account.username, account_pk=account.pk),

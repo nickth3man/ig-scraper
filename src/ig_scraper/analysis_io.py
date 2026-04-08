@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import TYPE_CHECKING, Any
 
+from ig_scraper.logging_utils import format_kv, get_logger
 
+
+logger = get_logger("io")
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -97,11 +101,24 @@ def ensure_swipes_dir(base_dir: Path, handle: str) -> Path:
 
 def write_json(path: Path, data: Any) -> None:
     """Serialize *data* as JSON and write it to *path*, creating parent dirs as needed."""
+    t0 = time.perf_counter()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    payload = json.dumps(data, indent=2, ensure_ascii=False)
+    path.write_text(payload, encoding="utf-8")
+    elapsed = round(time.perf_counter() - t0, 3)
+    logger.info(
+        "JSON written | %s",
+        format_kv(path=path, bytes=len(payload.encode("utf-8")), elapsed_seconds=elapsed),
+    )
 
 
 def write_text(path: Path, data: str) -> None:
     """Write *data* to *path* as UTF-8, creating parent dirs as needed."""
+    t0 = time.perf_counter()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(data, encoding="utf-8")
+    elapsed = round(time.perf_counter() - t0, 3)
+    logger.info(
+        "Text written | %s",
+        format_kv(path=path, chars=len(data), elapsed_seconds=elapsed),
+    )

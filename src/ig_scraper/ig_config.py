@@ -46,10 +46,16 @@ MEDIA_DOWNLOAD_RETRIES = _env_int("IG_MEDIA_DOWNLOAD_RETRIES", 3)
 
 def _sleep(reason: str) -> None:
     """Sleep between Instagram requests to avoid rate limiting."""
-    logger.info(
-        "Sleeping between Instagram requests | %s",
-        format_kv(reason=reason, seconds=REQUEST_PAUSE_SECONDS),
-    )
     import time
 
+    logger.info(
+        "Sleep starting | %s",
+        format_kv(reason=reason, seconds=REQUEST_PAUSE_SECONDS),
+    )
+    t0 = time.perf_counter()
     time.sleep(REQUEST_PAUSE_SECONDS)
+    elapsed = round(time.perf_counter() - t0, 3)
+    logger.info(
+        "Sleep complete | %s",
+        format_kv(reason=reason, requested_seconds=REQUEST_PAUSE_SECONDS, actual_seconds=elapsed),
+    )
