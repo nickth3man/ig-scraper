@@ -20,20 +20,10 @@ from ig_scraper.analysis_io import (
 )
 
 
-def build_analysis_markdown(
-    handle: str, posts: list[dict[str, Any]], comments: list[dict[str, Any]]
-) -> str:
-    """Build a full account-analysis markdown document. Delegates to analysis_render."""
-    from ig_scraper.analysis_render import build_analysis_markdown as _build
-
-    return _build(handle, posts, comments)
-
-
 __all__ = [
     "CTA_TOKENS",
     "HANDLE_PATTERN",
     "HOOK_WORDS",
-    "build_analysis_markdown",
     "clean_handle",
     "ensure_swipes_dir",
     "extract_hashtags",
@@ -65,6 +55,7 @@ def post_dir(base_dir: Path, handle: str, index: int, post: dict[str, Any]) -> P
 
 
 def _first_non_empty(item: dict[str, Any], keys: list[str]) -> Any:
+    """Return the first non-empty value from item for the given keys."""
     for key in keys:
         value = item.get(key)
         if value not in (None, "", [], {}):
@@ -106,12 +97,12 @@ def _safe_int(value: Any) -> int:
 
 def get_comment_count(post: dict[str, Any]) -> int:
     """Return the comment count from a post dict, defaulting to 0."""
-    return _safe_int(_first_non_empty(post, ["comments_count"]))
+    return _safe_int(_first_non_empty(post, ["comment_count", "comments_count"]))
 
 
 def get_like_count(post: dict[str, Any]) -> int:
     """Return the like count from a post dict, defaulting to 0."""
-    return _safe_int(_first_non_empty(post, ["likes_count"]))
+    return _safe_int(_first_non_empty(post, ["like_count", "likes_count"]))
 
 
 def get_timestamp(post: dict[str, Any]) -> str:
@@ -184,7 +175,7 @@ def group_comments_by_post(
         key = str(
             _first_non_empty(
                 comment,
-                ["postUrl", "post_url", "postId", "post_id", "shortCode", "shortcode"],
+                ["post_url", "postUrl", "postId", "post_id", "shortCode", "shortcode"],
             )
             or "unknown"
         )
