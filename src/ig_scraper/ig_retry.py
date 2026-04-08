@@ -138,9 +138,11 @@ def retry_on(
     base_wait = wait_base_seconds if wait_base_seconds is not None else REQUEST_PAUSE_SECONDS
 
     def decorator(fn: Callable[..., T]) -> Callable[..., T]:
+        fn_name = getattr(fn, "__name__", repr(fn))
+
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> T:
-            last_exc: Exception | None = None
+            last_exc: BaseException | None = None
             for attempt in range(1, max_attempts + 1):
                 try:
                     return fn(*args, **kwargs)
@@ -149,7 +151,7 @@ def retry_on(
                     wait_seconds = round(base_wait * (2**attempt), 2)
                     logger.warning(
                         "Function %s failed (attempt %d/%d) | error=%s | retry_wait_seconds=%s",
-                        fn.__name__,
+                        fn_name,
                         attempt,
                         max_attempts,
                         exc,
@@ -158,9 +160,9 @@ def retry_on(
                     if attempt < max_attempts:
                         time.sleep(wait_seconds)
             if last_exc is None:
-                raise RuntimeError(f"Unexpected: {fn.__name__} exhausted retries but no exception")
+                raise RuntimeError(f"Unexpected: {fn_name} exhausted retries but no exception")
             raise _RetryExhaustedError(
-                f"{fn.__name__} failed after {max_attempts} attempts: {last_exc}"
+                f"{fn_name} failed after {max_attempts} attempts: {last_exc}"
             ) from last_exc
 
         return wrapper

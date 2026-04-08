@@ -202,12 +202,12 @@ class TestLogFunctions:
 class TestProcessSingleMedia:
     """Tests for _process_single_media function."""
 
-    @patch("ig_scraper.instagrapi_fallback._download_media")
-    @patch("ig_scraper.instagrapi_fallback._fetch_all_comments")
-    @patch("ig_scraper.instagrapi_fallback._media_permalink")
+    @patch("ig_scraper.ig_media_processing._download_media")
+    @patch("ig_scraper.ig_media_processing._fetch_all_comments")
+    @patch("ig_scraper.ig_media_processing._media_permalink")
     def test_success(self, mock_permalink, mock_fetch, mock_download):
         """Test successful media processing."""
-        from ig_scraper.instagrapi_fallback import _process_single_media
+        from ig_scraper.ig_media_processing import _process_single_media
 
         mock_client = MagicMock()
         mock_media = MagicMock()
@@ -239,12 +239,12 @@ class TestProcessSingleMedia:
         assert post["short_code"] == "ABC123"
         assert len(comments) == 1
 
-    @patch("ig_scraper.instagrapi_fallback._download_media")
-    @patch("ig_scraper.instagrapi_fallback._fetch_all_comments")
-    @patch("ig_scraper.instagrapi_fallback._media_permalink")
+    @patch("ig_scraper.ig_media_processing._download_media")
+    @patch("ig_scraper.ig_media_processing._fetch_all_comments")
+    @patch("ig_scraper.ig_media_processing._media_permalink")
     def test_media_download_error_continues(self, mock_permalink, mock_fetch, mock_download):
         """Test MediaDownloadError handling continues with empty media_files."""
-        from ig_scraper.instagrapi_fallback import _process_single_media
+        from ig_scraper.ig_media_processing import _process_single_media
 
         mock_client = MagicMock()
         mock_media = MagicMock()
@@ -276,12 +276,12 @@ class TestProcessSingleMedia:
         assert post["short_code"] == "ABC123"
         assert media_files == []
 
-    @patch("ig_scraper.instagrapi_fallback._download_media")
-    @patch("ig_scraper.instagrapi_fallback._fetch_all_comments")
-    @patch("ig_scraper.instagrapi_fallback._media_permalink")
+    @patch("ig_scraper.ig_media_processing._download_media")
+    @patch("ig_scraper.ig_media_processing._fetch_all_comments")
+    @patch("ig_scraper.ig_media_processing._media_permalink")
     def test_comment_errors_continue(self, mock_permalink, mock_fetch, mock_download):
         """Test comment fetch error handling for RuntimeError, ConnectionError, TimeoutError."""
-        from ig_scraper.instagrapi_fallback import _process_single_media
+        from ig_scraper.ig_media_processing import _process_single_media
 
         for exc_type in [RuntimeError, ConnectionError, TimeoutError]:
             mock_client = MagicMock()
@@ -314,12 +314,12 @@ class TestProcessSingleMedia:
 
             assert comments == []
 
-    @patch("ig_scraper.instagrapi_fallback._download_media")
-    @patch("ig_scraper.instagrapi_fallback._fetch_all_comments")
-    @patch("ig_scraper.instagrapi_fallback._media_permalink")
+    @patch("ig_scraper.ig_media_processing._download_media")
+    @patch("ig_scraper.ig_media_processing._fetch_all_comments")
+    @patch("ig_scraper.ig_media_processing._media_permalink")
     def test_none_account_dir_and_posts_root(self, mock_permalink, mock_fetch, mock_download):
         """Test with None account_dir and posts_root."""
-        from ig_scraper.instagrapi_fallback import _process_single_media
+        from ig_scraper.ig_media_processing import _process_single_media
 
         mock_client = MagicMock()
         mock_media = MagicMock()
