@@ -203,3 +203,4 @@ Use when working with specific npm/pip/cargo packages.
 4. **Perplexity for reasoning** - Use reason/research modes for complex analysis
 5. **GitHub for patterns** - Real code examples are invaluable for implementation questions
 6. **Extract after discovery** - Use extraction tools only after identifying valuable URLs
+7. **DeepWiki for GitHub docs** - When accessing any GitHub repository documentation, ALWAYS use `deepwiki_read_wiki_contents` before fetching and `deepwiki_read_wiki_structure` after fetching to get AI-generated documentation summaries and explore the full docs structure
