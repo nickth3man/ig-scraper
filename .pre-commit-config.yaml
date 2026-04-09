@@ -9,6 +9,11 @@ repos:
       - id: check-yaml
       - id: check-merge-conflict
 
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.29
+    hooks:
+      - id: ty
+
   - repo: local
     hooks:
       - id: check-all

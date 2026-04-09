@@ -14,10 +14,10 @@ SCRIPTS_DIR = Path(__file__).parent
 
 # Ordered steps: (label, command)
 STEPS: list[tuple[str, list[str]]] = [
-    ("ruff check (lint)", ["uv", "run", "ruff", "check", "."]),
-    ("ruff format (check)", ["uv", "run", "ruff", "format", "--check", "."]),
     ("ty (type checking)", ["uv", "run", "ty", "check", "src/"]),
     ("mypy (type checking)", ["uv", "run", "mypy", "src/"]),
+    ("ruff check (lint)", ["uv", "run", "ruff", "check", "."]),
+    ("ruff format (check)", ["uv", "run", "ruff", "format", "--check", "."]),
     ("pytest (tests)", ["uv", "run", "pytest"]),
     ("file length check", ["uv", "run", "python", str(SCRIPTS_DIR / "check_file_length.py")]),
 ]

@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import functools
 import time
 from typing import TYPE_CHECKING, Any
 
 from ig_scraper.client import get_instagram_client
-from ig_scraper.config import COMMENT_PAGE_RETRIES, _sleep
+from ig_scraper.config import COMMENT_PAGE_RETRIES, REQUEST_PAUSE_SECONDS, _sleep
 from ig_scraper.logging_utils import format_kv, get_logger
 from ig_scraper.media_processing import _process_single_media
 from ig_scraper.models import Profile
-from ig_scraper.retry import _retry_with_backoff
+from ig_scraper.retry import retry_on
 
 
 if TYPE_CHECKING:
@@ -68,11 +67,28 @@ def _log_medias_fetch_attempt(
     )
 
 
-if TYPE_CHECKING:
-    from pathlib import Path
+@retry_on(
+    RuntimeError,
+    ConnectionError,
+    max_attempts=COMMENT_PAGE_RETRIES,
+    wait_base_seconds=REQUEST_PAUSE_SECONDS,
+)
+def _fetch_user_info(username: str) -> Any:
+    """Fetch user info by username with retry."""
+    client = get_instagram_client()
+    return client.user_info_by_username_v1(username)
 
 
-logger = get_logger("instagrapi")
+@retry_on(
+    RuntimeError,
+    ConnectionError,
+    max_attempts=COMMENT_PAGE_RETRIES,
+    wait_base_seconds=REQUEST_PAUSE_SECONDS,
+)
+def _fetch_user_medias(pk: int, amount: int) -> Any:
+    """Fetch user medias by pk with retry."""
+    client = get_instagram_client()
+    return client.user_medias_v1(str(pk), amount=amount)
 
 
 def fetch_profile_posts_and_comments(
@@ -89,12 +105,7 @@ def fetch_profile_posts_and_comments(
     logger.info("Client obtained | %s", format_kv(elapsed_seconds=elapsed_client))
     logger.info("Fetching profile info | %s", format_kv(username=username))
     t0_profile = time.perf_counter()
-    user = _retry_with_backoff(
-        lambda: client.user_info_by_username_v1(username),
-        retries=COMMENT_PAGE_RETRIES,
-        exceptions=(RuntimeError, ConnectionError),
-        log_attempt=functools.partial(_log_profile_fetch_attempt, username),
-    )
+    user = _fetch_user_info(username)
     elapsed_profile = round(time.perf_counter() - t0_profile, 3)
     logger.info(
         "user_info_by_username_v1 returned | %s", format_kv(elapsed_seconds=elapsed_profile)
@@ -113,12 +124,7 @@ def fetch_profile_posts_and_comments(
         "Fetching recent medias | %s", format_kv(username=username, amount=posts_per_profile)
     )
     t0_medias = time.perf_counter()
-    medias = _retry_with_backoff(
-        lambda: client.user_medias_v1(user.pk, amount=posts_per_profile),
-        retries=COMMENT_PAGE_RETRIES,
-        exceptions=(RuntimeError, ConnectionError),
-        log_attempt=functools.partial(_log_medias_fetch_attempt, username),
-    )
+    medias = _fetch_user_medias(user.pk, posts_per_profile)
     elapsed_medias = round(time.perf_counter() - t0_medias, 3)
     logger.info(
         "user_medias_v1 returned | %s",

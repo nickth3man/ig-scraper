@@ -201,13 +201,17 @@ class TestWritePostArtifacts:
             }
         ]
 
-        write_post_artifacts(handle, posts, comments)
+        with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+            write_post_artifacts(handle, posts, comments)
 
-        # Check that files exist under the handle directory
-        user_dir = ACCOUNT_DIR / handle
-        # The function uses post_dir which needs ACCOUNT_DIR
-        # Since we can't easily patch ACCOUNT_DIR, just verify no exception
-        assert user_dir.exists() or True  # Functional test
+        # Verify files exist under the handle directory within tmp_path
+        user_dir = tmp_path / handle
+        posts_dir = user_dir / "posts"
+        post_subdir = next((d for d in posts_dir.iterdir() if d.is_dir()), None)
+        assert post_subdir is not None, "Post subdirectory should be created"
+        assert (post_subdir / "metadata.json").exists(), "metadata.json should be written"
+        assert (post_subdir / "comments.json").exists(), "comments.json should be written"
+        assert (post_subdir / "caption.txt").exists(), "caption.txt should be written"
 
     def test_writes_caption_txt(self, tmp_path):
         """Test write_post_artifacts writes caption.txt for each post."""
@@ -225,10 +229,17 @@ class TestWritePostArtifacts:
         ]
         comments = []
 
-        write_post_artifacts(handle, posts, comments)
+        with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+            write_post_artifacts(handle, posts, comments)
 
-        # Verify caption.txt was written (path construction check)
-        # We just verify no exception was raised
+        # Verify caption.txt content
+        user_dir = tmp_path / handle
+        posts_dir = user_dir / "posts"
+        post_subdir = next((d for d in posts_dir.iterdir() if d.is_dir()), None)
+        assert post_subdir is not None
+        caption_file = post_subdir / "caption.txt"
+        assert caption_file.exists(), "caption.txt should be written"
+        assert caption_file.read_text() == "My great caption"
 
 
 class TestRootPathBehavior:

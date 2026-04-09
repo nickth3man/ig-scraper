@@ -30,7 +30,7 @@ After making any file changes, **ALWAYS** run the all-in-one check script:
 uv run python scripts/check_all.py
 ```
 
-This runs all checks in order: ruff lint, ruff format check, ty, mypy, pytest, file length.
+This runs all checks in order: ruff lint, ruff format check, mypy, pytest, file length.
 It stops on the first failure. Fix the issue and re-run until all checks pass.
 
 **NEVER use `--no-verify` to bypass these checks.** The pre-commit hook exists to catch issues before they reach CI. Bypassing it with `--no-verify` defeats this protection and can introduce bugs or style violations into the codebase.
@@ -49,8 +49,8 @@ uv run ruff format .
 
 ### 3. Run Type Checkers
 ```bash
-uv run ty check src/
 uv run mypy src/
+```
 ```
 
 ### 4. Run All Tests
@@ -69,7 +69,6 @@ uv run python scripts/check_file_length.py
 |------|---------|---------|
 | ruff | Linting | `uv run ruff check .` |
 | ruff | Formatting | `uv run ruff format .` |
-| ty | Type checking | `uv run ty check src/` |
 | mypy | Type checking | `uv run mypy src/` |
 | pytest | Testing | `uv run pytest` |
 | pytest + coverage | Test coverage | `uv run pytest --cov` |
@@ -83,7 +82,7 @@ This project has pre-commit hooks configured. On every commit the following runs
 2. **check_all.py** — unified runner that executes in order:
    - ruff check (lint)
    - ruff format (check only)
-   - ty (type checking)
+   - mypy (type checking)
    - mypy (type checking)
    - pytest (all tests)
    - file length check (200 line limit)

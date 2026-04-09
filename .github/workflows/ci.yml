@@ -6,30 +6,53 @@ on:
   pull_request:
 
 jobs:
-  quality:
+  lint:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.12'
           enable-cache: true
+      - run: uv sync --locked --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
 
-      - name: Sync dependencies
-        run: uv sync --locked --dev
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      - run: uv sync --locked --dev
+      - run: uv run ty check src/
+      - run: uv run mypy src/
 
-      - name: Verify tooling
-        run: |
-          uv run ruff --version
-          uv run mypy --version
-          uv run pytest --version
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --locked --dev
+      - run: uv run pytest --cov --cov-report=term-missing
+      - run: uv run python scripts/check_file_length.py
 
-      - name: All checks (lint, format, types, tests, file length)
-        run: uv run python scripts/check_all.py
-
-      - name: pip-audit
-        run: uv run pip-audit
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      - run: uv sync --locked --dev
+      - run: uv run pip-audit

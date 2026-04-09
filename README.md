@@ -104,16 +104,19 @@ uv run pytest -m "not integration"
 ### Code Quality
 
 ```bash
-# Run linter
-uv run ruff check .
+# Run ty (Astral type checker — fast, strict)
+uv run ty check src/
 
-# Run formatter
-uv run ruff format .
-
-# Run type checker
+# Run mypy (traditional type checker)
 uv run mypy src/
 
-# Run all checks
+# Run ruff linter
+uv run ruff check .
+
+# Run ruff formatter
+uv run ruff format .
+
+# Run all checks (ty, mypy, ruff, pytest, file length)
 uv run python scripts/check_all.py
 ```
 
@@ -122,17 +125,44 @@ uv run python scripts/check_all.py
 ```
 ig-scraper/
 ├── src/ig_scraper/
-│   ├── __init__.py
-│   ├── __main__.py          # Package entry point
-│   ├── analysis.py          # Text analysis utilities
-│   ├── instagram_client.py  # Authentication client
-│   ├── instagrapi_fallback.py  # API interaction with retry logic
-│   ├── logging_utils.py     # Structured logging
-│   ├── models.py            # Typed data models (Profile, Post, Comment)
-│   └── run_scrape.py        # CLI entry point
+│   ├── __init__.py              # Package public API
+│   ├── __main__.py              # Package entry point
+│   ├── analysis.py              # Re-exports + analysis helpers
+│   ├── analysis_io.py           # I/O utilities + constants
+│   ├── analysis_render.py       # Markdown report builder
+│   ├── cli.py                   # CLI argument parsing
+│   ├── client.py                # Instagram authentication
+│   ├── comments.py              # Comment pagination
+│   ├── config.py                # Environment configuration
+│   ├── exceptions.py            # Custom exception hierarchy
+│   ├── logging_utils.py         # Structured logging
+│   ├── media.py                 # Media download dispatch
+│   ├── media_processing.py      # Single-media pipeline
+│   ├── models/                  # Data models package
+│   │   ├── __init__.py          # Re-exports
+│   │   ├── comment.py           # Comment dataclass
+│   │   ├── post.py              # Post + PostResource dataclasses
+│   │   └── profile.py           # Profile dataclass
+│   ├── paths.py                 # Filesystem path constants
+│   ├── retry.py                 # Retry primitives
+│   ├── run_scrape.py            # Per-handle orchestration
+│   └── scraper.py               # Profile + media fetch loop
 ├── tests/
-│   ├── conftest.py          # Test fixtures
-│   └── test_analysis.py     # Unit tests for analysis functions
+│   ├── conftest.py              # Test fixtures
+│   ├── factories.py             # Polyfactory data factories
+│   ├── features/                # BDD feature files
+│   ├── test_analysis.py         # Analysis unit tests
+│   ├── test_analysis_render.py  # Analysis render tests
+│   ├── test_bdd.py              # BDD step definitions
+│   ├── test_builders.py         # Builder/mock tests
+│   ├── test_client.py           # Client auth tests
+│   ├── test_file_length.py      # File length enforcement
+│   ├── test_models.py           # Data model tests
+│   ├── test_property.py         # Property-based tests
+│   ├── test_regressions.py      # Regression/golden tests
+│   ├── test_run_scrape.py       # Run scrape tests
+│   ├── test_scraper.py          # Scraper tests
+│   └── test_snapshots.py        # Snapshot tests
 ├── resources/
 │   └── instagram_handles.md # Handles template for --all
 ├── data/
@@ -182,12 +212,14 @@ Three-tier testing approach:
 - **requests**: HTTP library (instagrapi dependency)
 
 ### Development
-- **pytest**: Testing framework
-- **pytest-cov**: Coverage reporting
-- **pytest-mock**: Enhanced mocking
-- **responses**: HTTP mocking for tests
-- **mypy**: Static type checking
-- **ruff**: Linting and formatting
+KV|- **pytest**: Testing framework
+QN|- **pytest-cov**: Coverage reporting
+VY|- **pytest-mock**: Enhanced mocking
+KN|- **responses**: HTTP mocking for tests
+BJ|- **mypy**: Static type checking
+XM|- **ruff**: Linting and formatting
+HT|
+KR|## License
 
 ## License
 
@@ -195,13 +227,14 @@ Three-tier testing approach:
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run all checks (`uv run python scripts/check_all.py`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+TZ|
+KX|1. Fork the repository
+JV|2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+SS|3. Make your changes
+SZ|4. Run all checks (`uv run python scripts/check_all.py`)
+NP|5. Commit your changes (`git commit -m 'Add amazing feature'`)
+XJ|6. Push to the branch (`git push origin feature/amazing-feature`)
+KT|7. Open a Pull Request
 
 ## Troubleshooting
 

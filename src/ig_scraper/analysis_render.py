@@ -6,7 +6,6 @@ from collections import Counter
 from typing import Any
 
 from ig_scraper.analysis import (
-    CTA_TOKENS,
     extract_hashtags,
     extract_hook,
     extract_mentions,
@@ -20,6 +19,13 @@ from ig_scraper.analysis import (
     group_comments_by_post,
     summarize_comment_texts,
     top_words,
+)
+from ig_scraper.analysis_io import (
+    CAPTION_TRUNCATION_LENGTH,
+    CTA_LINES_DISPLAY_LIMIT,
+    CTA_TOKENS,
+    HOOKS_DISPLAY_LIMIT,
+    TOP_POSTS_DISPLAY_LIMIT,
 )
 
 
@@ -37,7 +43,7 @@ def _compute_analysis_stats(
     comments_by_post = group_comments_by_post(comments)
     top_posts = sorted(
         posts, key=lambda p: (get_like_count(p), get_comment_count(p)), reverse=True
-    )[:5]
+    )[:TOP_POSTS_DISPLAY_LIMIT]
     return {
         "profile": profile,
         "captions": captions,
@@ -73,7 +79,7 @@ def _render_profile_section(stats: dict[str, Any], post_count: int) -> list[str]
 def _render_patterns_section(stats: dict[str, Any]) -> list[str]:
     """Render the Pattern Observations section."""
     lines: list[str] = ["## 2. Pattern Observations", "", "### Hook patterns", ""]
-    lines.extend(f"- {h}" for h in stats["hooks"][:8])
+    lines.extend(f"- {h}" for h in stats["hooks"][:HOOKS_DISPLAY_LIMIT])
     if not stats["hooks"]:
         lines.append("- No usable hooks extracted from captions.")
     lines += ["", "### Format patterns", ""]
@@ -95,7 +101,7 @@ def _render_patterns_section(stats: dict[str, Any]) -> list[str]:
     cta_lines = [
         extract_hook(c) for c in stats["captions"] if any(t in c.lower() for t in CTA_TOKENS)
     ]
-    lines.extend(f"- {line}" for line in cta_lines[:6])
+    lines.extend(f"- {line}" for line in cta_lines[:CTA_LINES_DISPLAY_LIMIT])
     if not cta_lines:
         lines.append("- No explicit CTA language surfaced in sampled captions.")
     lines += ["", "### Comment patterns", ""]
@@ -123,7 +129,7 @@ def _render_swipes_section(stats: dict[str, Any]) -> list[str]:
             f"### Post {idx}",
             f"- Format: {get_post_type(post)}",
             f"- Hook: {extract_hook(caption) or 'No caption hook extracted'}",
-            f"- Caption summary: {(caption[:500] + ('…' if len(caption) > 500 else '')) or 'No caption returned'}",
+            f"- Caption summary: {(caption[:CAPTION_TRUNCATION_LENGTH] + ('…' if len(caption) > CAPTION_TRUNCATION_LENGTH else '')) or 'No caption returned'}",
             f"- Comment summary: {n_comments} comments captured",
             f"- Why it works: Engagement proxy likes={get_like_count(post)}, comments={get_comment_count(post)}, timestamp={get_timestamp(post) or 'unknown'}",
             "- Pillar mapping: To be interpreted from hook/theme in later synthesis.",

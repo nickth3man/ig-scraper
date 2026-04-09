@@ -10,23 +10,6 @@ dependencies = [
     "requests>=2.32.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=9.0.0",
-    "pytest-cov>=6.0",
-    "pytest-mock>=3.14",
-    "responses>=0.25",
-    "mypy>=1.15",
-    "ruff>=0.15.9",
-    "pip-audit>=2.8.0",
-    "ty>=0.0.29",
-    "hypothesis>=6.100",
-    "polyfactory>=2.0",
-    "inline-snapshot>=0.20",
-    "pytest-regressions>=2.0",
-    "pytest-bdd>=8.0",
-]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -67,7 +50,11 @@ ignore = [
 "tests/**/*.py" = [
     "S101",    # assert allowed in tests
     "ARG",     # unused arguments common in fixtures
+    "D101",    # missing docstrings common in test classes
+    "D102",    # missing docstrings common in test methods
+    "F401",    # unused imports common in test files
 ]
+
 "scripts/**/*.py" = [
     "T201",    # print is the intended output mechanism for scripts
     "PTH123",  # open() is fine in scripts
@@ -135,7 +122,7 @@ branch = true
 omit = ["*/tests/*", "*/__main__.py"]
 
 [tool.coverage.report]
-fail_under = 60
+fail_under = 80
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
@@ -153,8 +140,8 @@ dev-dependencies = [
     "responses>=0.25",
     "mypy>=1.15",
     "ruff>=0.15.9",
-    "pip-audit>=2.8.0",
     "ty>=0.0.29",
+    "pip-audit>=2.8.0",
     "hypothesis>=6.100",
     "polyfactory>=2.0",
     "inline-snapshot>=0.20",
