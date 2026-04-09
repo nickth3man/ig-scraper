@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Instagram scraping tool"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["instagrapi~=2.3", "python-dotenv>=1.2.0", "requests>=2.33.0"]
+dependencies = ["instagrapi~=2.1.5", "python-dotenv>=1.2.0", "requests>=2.33.0"]
 
 [build-system]
 requires = ["hatchling"]
