@@ -4,11 +4,7 @@ version = "0.1.0"
 description = "Instagram scraping tool"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "instagrapi~=2.3",
-    "python-dotenv>=1.2.0",
-    "requests>=2.32.0",
-]
+dependencies = ["instagrapi~=2.3", "python-dotenv>=1.2.0", "requests>=2.32.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -20,22 +16,22 @@ line-length = 100
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "F",   # Pyflakes
-    "W",   # pycodestyle warnings
-    "I",   # isort
-    "N",   # pep8-naming
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "SIM", # flake8-simplify
-    "PT",  # flake8-pytest-style
-    "RET", # flake8-return
-    "PTH", # flake8-use-pathlib
-    "RUF", # Ruff-specific rules
-    "T20", # flake8-print
-    "S",   # flake8-bandit (security)
-    "D",   # pydocstyle
+    "E",    # pycodestyle errors
+    "F",    # Pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PT",   # flake8-pytest-style
+    "RET",  # flake8-return
+    "PTH",  # flake8-use-pathlib
+    "RUF",  # Ruff-specific rules
+    "T20",  # flake8-print
+    "S",    # flake8-bandit (security)
+    "D",    # pydocstyle
     "A",    # flake8-builtins
     "TCH",  # flake8-type-checking
     "PIE",  # flake8-pie
@@ -43,21 +39,21 @@ select = [
     "LOG",  # flake8-logging
 ]
 ignore = [
-    "E501",  # Line too long (handled by formatter)
+    "E501", # Line too long (handled by formatter)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
-    "S101",    # assert allowed in tests
-    "ARG",     # unused arguments common in fixtures
-    "D101",    # missing docstrings common in test classes
-    "D102",    # missing docstrings common in test methods
-    "F401",    # unused imports common in test files
+    "S101", # assert allowed in tests
+    "ARG",  # unused arguments common in fixtures
+    "D101", # missing docstrings common in test classes
+    "D102", # missing docstrings common in test methods
+    "F401", # unused imports common in test files
 ]
 
 "scripts/**/*.py" = [
-    "T201",    # print is the intended output mechanism for scripts
-    "PTH123",  # open() is fine in scripts
+    "T201",   # print is the intended output mechanism for scripts
+    "PTH123", # open() is fine in scripts
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -88,7 +84,6 @@ disallow_incomplete_defs = true
 ignore_missing_imports = false
 
 
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
@@ -104,17 +99,21 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests that hit real APIs",
 ]
-filterwarnings = [
-    "error",
-    "ignore::DeprecationWarning:instagrapi.*",
-]
+filterwarnings = ["error", "ignore::DeprecationWarning:instagrapi.*"]
 
 [[tool.mypy.overrides]]
-module = ["instagrapi.*", "hypothesis.*", "polyfactory.*", "inline_snapshot.*", "pytest_regressions.*", "pytest_bdd.*"]
+module = [
+    "instagrapi.*",
+    "hypothesis.*",
+    "polyfactory.*",
+    "inline_snapshot.*",
+    "pytest_regressions.*",
+    "pytest_bdd.*",
+]
 ignore_missing_imports = true
 
 [tool.inline-snapshot]
-shortcuts = {fix = ["create", "fix"], review = "review"}
+shortcuts = { fix = ["create", "fix"], review = "review" }
 
 [tool.coverage.run]
 source = ["src/ig_scraper"]
