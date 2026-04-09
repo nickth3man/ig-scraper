@@ -6,6 +6,22 @@ This environment uses **bash** as the execution shell, including on Windows.
 Always write and run commands using **bash syntax**, not PowerShell syntax.
 For example, use `VAR=value command` or `export VAR=value`, not `$env:VAR='value'`.
 
+### Bash-Only Command Guardrail
+
+- **Never** use PowerShell environment-variable syntax in this repo, even on Windows:
+  - Wrong: `$env:CI='true'; git status --short`
+  - Wrong: `$env:GIT_PAGER='cat'; git commit -m "message"`
+- **Never** prepend a generic "safe command prefix" copied from another shell or project.
+- For simple commands, prefer the plain bash command with **no** env prefix at all:
+  - Right: `git status --short`
+  - Right: `git mv "old" "new"`
+  - Right: `git commit -m "message"`
+- If environment variables are actually needed, use **bash** forms only:
+  - Right: `CI='true' GIT_PAGER='cat' git status --short`
+  - Right: `export CI='true' GIT_PAGER='cat'` then run the command
+- Before running any command on Windows, quickly sanity-check that every token is valid **bash** syntax.
+- If you see `$env:` anywhere in a command, stop and rewrite it before execution.
+
 ## Post-Edit Workflow
 
 After making any file changes, **ALWAYS** run the all-in-one check script:
