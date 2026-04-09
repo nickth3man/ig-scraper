@@ -8,8 +8,10 @@ from pathlib import Path  # noqa: TC003
 from typing import Any
 
 from ig_scraper.analysis_io import (
+    COMMENT_TEXT_TRUNCATION_LENGTH,
     CTA_TOKENS,
     HANDLE_PATTERN,
+    HOOK_TRUNCATION_LENGTH,
     HOOK_WORDS,
     clean_handle,
     ensure_swipes_dir,
@@ -151,7 +153,7 @@ def extract_hook(text: str) -> str:
     first_line = text.splitlines()[0].strip()
     sentences = re.split(r"(?<=[.!?])\s+", first_line)
     hook = sentences[0].strip() if sentences else first_line
-    return hook[:140]
+    return hook[:HOOK_TRUNCATION_LENGTH]
 
 
 def top_words(texts: list[str], limit: int = 12) -> list[str]:
@@ -189,5 +191,5 @@ def summarize_comment_texts(comments: list[dict[str, Any]], limit: int = 5) -> s
     for comment in comments[:limit]:
         text = str(_first_non_empty(comment, ["text", "commentText", "comment"]) or "").strip()
         if text:
-            texts.append(f'- "{text[:180]}"')
+            texts.append(f'- "{text[:COMMENT_TEXT_TRUNCATION_LENGTH]}"')
     return "\n".join(texts) if texts else "No comment text retrieved."

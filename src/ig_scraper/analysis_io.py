@@ -71,6 +71,16 @@ CTA_TOKENS = frozenset({"comment", "dm", "link in bio", "save", "share", "follow
 HANDLE_PATTERN = re.compile(r"^[a-zA-Z0-9._]{1,30}$")
 
 
+# Truncation/display limits
+HOOK_TRUNCATION_LENGTH = 140
+COMMENT_TEXT_TRUNCATION_LENGTH = 180
+TOP_POSTS_DISPLAY_LIMIT = 5
+HOOKS_DISPLAY_LIMIT = 8
+CTA_LINES_DISPLAY_LIMIT = 6
+CAPTION_TRUNCATION_LENGTH = 500
+PATH_SEGMENT_MAX_LENGTH = 120
+
+
 def clean_handle(handle: str) -> str:
     """Normalize and validate an Instagram handle."""
     cleaned = handle.strip().lstrip("@").strip()
@@ -89,7 +99,7 @@ def handle_dir(base_dir: Path, handle: str) -> Path:
 def sanitize_path_segment(value: str, fallback: str = "item") -> str:
     """Convert an arbitrary string to a safe filesystem path segment."""
     text = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-._")
-    return text[:120] or fallback
+    return text[:PATH_SEGMENT_MAX_LENGTH] or fallback
 
 
 def ensure_swipes_dir(base_dir: Path, handle: str) -> Path:
