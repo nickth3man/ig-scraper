@@ -55,6 +55,7 @@ coverage.xml
 htmlcov/
 
 # Logs
+logs/
 *.log
 
 # Serialized data

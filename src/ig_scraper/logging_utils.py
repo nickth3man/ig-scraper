@@ -1,4 +1,9 @@
-"""Structured logging utilities for the ig-scraper package."""
+"""Structured logging utilities for the ig-scraper package.
+
+By default, every run creates a timestamped log file under ``logs/`` and captures
+DEBUG-level (trace) output. The console stream handler stays at INFO so the
+terminal remains readable.
+"""
 
 from __future__ import annotations
 
@@ -8,58 +13,69 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ig_scraper.paths import LOGS_DIR
+
 
 LOGGER_NAME = "ig_scraper"
 
+_DEFAULT_CONSOLE_LEVEL = logging.INFO
+_DEFAULT_FILE_LEVEL = logging.DEBUG
 
-def _write_run_divider(log_file: Path) -> None:
-    """Write a visual divider banner to the log file marking the start of a new run.
 
-    Creates the log file's parent directory if needed. The divider includes a
-    timestamp and visual separators for easy scanning of log output.
+def _timestamped_log_path() -> Path:
+    """Return a ``logs/YYYY-MM-DD_HH-MM-SS.log`` path, creating the directory if needed."""
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
+    return LOGS_DIR / f"{ts}.log"
 
-    Args:
-        log_file: Path to the log file where the divider should be written.
+
+def configure_logging(
+    console_level: int = _DEFAULT_CONSOLE_LEVEL,
+    file_level: int = _DEFAULT_FILE_LEVEL,
+    log_file: Path | None = None,
+) -> logging.Logger:
+    """Configure the root ig-scraper logger.
+
+    Creates two handlers:
+    - **Stream handler** (stdout) at *console_level* — keeps the terminal readable.
+    - **File handler** at *file_level* — captures trace-level detail for post-mortem.
+
+    When *log_file* is ``None`` a timestamped file under ``logs/`` is generated
+    automatically so every run is recorded without any extra setup.
     """
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
-    divider = "\n" + "=" * 100 + "\n" + f"RUN START | {timestamp}\n" + "=" * 100 + "\n"
-    with log_file.open("a", encoding="utf-8") as handle:
-        handle.write(divider)
-
-
-def configure_logging(level: int = logging.INFO, log_file: Path | None = None) -> logging.Logger:
-    """Configure the root ig-scraper logger with a stream handler and optional file handler."""
     logger = logging.getLogger(LOGGER_NAME)
 
     formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-7s | %(message)s",
+        fmt="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
         datefmt="%H:%M:%S",
     )
 
+    # --- console handler (INFO by default) ---
     has_stream_handler = any(
-        isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
-        for handler in logger.handlers
+        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+        for h in logger.handlers
     )
     if not has_stream_handler:
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(formatter)
+        stream_handler.setLevel(console_level)
         logger.addHandler(stream_handler)
 
-    if log_file is not None:
-        resolved_log_file = log_file.resolve()
-        has_file_handler = any(
-            isinstance(handler, logging.FileHandler)
-            and Path(handler.baseFilename).resolve() == resolved_log_file
-            for handler in logger.handlers
-        )
-        if not has_file_handler:
-            _write_run_divider(resolved_log_file)
-            file_handler = logging.FileHandler(resolved_log_file, mode="a", encoding="utf-8")
-            file_handler.setFormatter(formatter)
-            logger.addHandler(file_handler)
+    # --- file handler (DEBUG / "trace" by default) ---
+    resolved = (log_file or _timestamped_log_path()).resolve()
+    has_file_handler = any(
+        isinstance(h, logging.FileHandler) and Path(h.baseFilename).resolve() == resolved
+        for h in logger.handlers
+    )
+    if not has_file_handler:
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(resolved, mode="a", encoding="utf-8")
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(file_level)
+        logger.addHandler(file_handler)
 
-    logger.setLevel(level)
+    # Root level must be permissive so individual handlers can filter
+    logger.setLevel(min(console_level, file_level))
     logger.propagate = False
     return logger
 

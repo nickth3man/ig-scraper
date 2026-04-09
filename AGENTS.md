@@ -1,5 +1,11 @@
 # Agent Instructions
 
+## Shell Requirement
+
+This environment uses **bash** as the execution shell, including on Windows.
+Always write and run commands using **bash syntax**, not PowerShell syntax.
+For example, use `VAR=value command` or `export VAR=value`, not `$env:VAR='value'`.
+
 ## Post-Edit Workflow
 
 After making any file changes, **ALWAYS** run the all-in-one check script:

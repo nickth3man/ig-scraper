@@ -15,7 +15,12 @@ def _env_int(name: str, default: int) -> int:
     if raw_value is None:
         return default
     try:
-        return int(raw_value)
+        parsed_value = int(raw_value)
+        logger.debug(
+            "Env override parsed | %s",
+            format_kv(name=name, raw_value=raw_value, parsed_value=parsed_value, default=default),
+        )
+        return parsed_value
     except ValueError:
         logger.warning(
             "Invalid integer environment override; using default | %s",
@@ -29,7 +34,12 @@ def _env_float(name: str, default: float) -> float:
     if raw_value is None:
         return default
     try:
-        return float(raw_value)
+        parsed_value = float(raw_value)
+        logger.debug(
+            "Env override parsed | %s",
+            format_kv(name=name, raw_value=raw_value, parsed_value=parsed_value, default=default),
+        )
+        return parsed_value
     except ValueError:
         logger.warning(
             "Invalid float environment override; using default | %s",
@@ -48,14 +58,25 @@ def _sleep(reason: str) -> None:
     """Sleep between Instagram requests to avoid rate limiting."""
     import time
 
-    logger.info(
+    logger.debug(
         "Sleep starting | %s",
         format_kv(reason=reason, seconds=REQUEST_PAUSE_SECONDS),
     )
     t0 = time.perf_counter()
     time.sleep(REQUEST_PAUSE_SECONDS)
     elapsed = round(time.perf_counter() - t0, 3)
-    logger.info(
+    logger.debug(
         "Sleep complete | %s",
         format_kv(reason=reason, requested_seconds=REQUEST_PAUSE_SECONDS, actual_seconds=elapsed),
     )
+
+
+logger.debug(
+    "Config constants resolved | %s",
+    format_kv(
+        COMMENTS_PAGE_SIZE=COMMENTS_PAGE_SIZE,
+        REQUEST_PAUSE_SECONDS=REQUEST_PAUSE_SECONDS,
+        COMMENT_PAGE_RETRIES=COMMENT_PAGE_RETRIES,
+        MEDIA_DOWNLOAD_RETRIES=MEDIA_DOWNLOAD_RETRIES,
+    ),
+)

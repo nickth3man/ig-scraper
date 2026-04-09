@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import time
 
 from ig_scraper.errors import IgScraperError
 from ig_scraper.logging_utils import configure_logging, format_kv, get_logger
-from ig_scraper.paths import HANDLES_FILE, VERBOSE_LOG_FILE
+from ig_scraper.paths import HANDLES_FILE
 from ig_scraper.run_scrape import (
     cleanup_removed_handle_dirs,
     initialize_readme,
@@ -60,7 +59,7 @@ def selected_handles(args: argparse.Namespace) -> list[str]:
 
 def main() -> None:
     """CLI entry point: parse arguments, scrape all selected handles, and update README status."""
-    configure_logging(logging.INFO, log_file=VERBOSE_LOG_FILE)
+    configure_logging()
     args = parse_args()
     handles = selected_handles(args)
     total_handles = len(handles)
@@ -72,7 +71,6 @@ def main() -> None:
         format_kv(
             total_handles=total_handles,
             max_posts_per_handle=args.max_posts_per_handle,
-            verbose_log_file=VERBOSE_LOG_FILE,
         ),
     )
     initialize_readme(handles)

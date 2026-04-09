@@ -16,7 +16,7 @@ import time
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from ig_scraper.ig_config import REQUEST_PAUSE_SECONDS
-from ig_scraper.logging_utils import get_logger
+from ig_scraper.logging_utils import format_kv, get_logger
 
 
 if TYPE_CHECKING:
@@ -95,12 +95,27 @@ def _retry_with_backoff[T](
         _RetryExhaustedError: When all retry attempts are exhausted with the last exception.
     """
     last_exc: Exception | None = None
+    fn_name = getattr(fn, "__name__", repr(fn))
     for attempt in range(1, retries + 1):
+        logger.debug("Retry attempt starting | %s", format_kv(attempt=attempt, fn_name=fn_name))
         try:
             return fn()
         except exceptions as exc:
             last_exc = exc
             wait_seconds = round(REQUEST_PAUSE_SECONDS * (2**attempt), 2)
+            is_retryable = classify_exception(exc)
+            will_retry = attempt < retries
+            exc_msg = str(exc)[:200]
+            logger.debug(
+                "Retry except caught | %s",
+                format_kv(
+                    exc_type=type(exc).__name__,
+                    exc_msg=exc_msg,
+                    is_retryable=is_retryable,
+                    wait_seconds=wait_seconds,
+                    will_retry=will_retry,
+                ),
+            )
             log_attempt(attempt, exc, wait_seconds)
             if attempt < retries:
                 time.sleep(wait_seconds)
@@ -142,10 +157,23 @@ def retry_on(
 
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> T:
+            logger.debug(
+                "Retry wrapper entered | %s",
+                format_kv(
+                    fn_name=fn_name,
+                    max_attempts=max_attempts,
+                    base_wait=base_wait,
+                    exception_types=exception_types,
+                ),
+            )
             last_exc: BaseException | None = None
             for attempt in range(1, max_attempts + 1):
                 try:
-                    return fn(*args, **kwargs)
+                    result = fn(*args, **kwargs)
+                    logger.debug(
+                        "Retry wrapper succeeded | %s", format_kv(fn_name=fn_name, attempt=attempt)
+                    )
+                    return result
                 except exception_types as exc:
                     last_exc = exc
                     wait_seconds = round(base_wait * (2**attempt), 2)
