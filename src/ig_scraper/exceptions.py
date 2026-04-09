@@ -3,6 +3,22 @@
 from __future__ import annotations
 
 
+INSTALOADER_RETRYABLE = {
+    "ConnectionException",
+    "TooManyRequestsException",
+    "QueryReturnedNotFoundException",
+    "AmbiguousRedirectException",
+}
+
+INSTALOADER_FATAL = {
+    "LoginRequiredException",
+    "BadCredentialsException",
+    "TwoFactorAuthRequiredException",
+    "PrivateProfileNotFollowedException",
+    "ProfileNotExistsException",
+}
+
+
 class IgScraperError(Exception):
     """Base exception for all ig_scraper errors."""
 
@@ -47,5 +63,11 @@ def classify_exception(exc: BaseException) -> bool:
     if isinstance(exc, IgScraperError):
         return False
 
+    exc_name = type(exc).__name__
+    if exc_name in INSTALOADER_RETRYABLE:
+        return True
+    if exc_name in INSTALOADER_FATAL:
+        return False
+
     # Fatal: instagrapi authentication errors (not importable, check by name)
-    return type(exc).__name__ not in ("LoginRequired", "ChallengeRequired")
+    return exc_name not in ("LoginRequired", "ChallengeRequired")

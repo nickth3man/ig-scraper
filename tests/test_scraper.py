@@ -1,4 +1,4 @@
-"""Tests for instagrapi_fallback.py — API interaction with retry logic."""
+"""Tests for scraper module — instaloader-based API interaction with retry logic."""
 
 from __future__ import annotations
 
@@ -114,34 +114,23 @@ class TestRetryWithBackoff:
 
 
 class TestMediaPermalink:
-    """Tests for _media_permalink."""
-
-    def test_reel_url_for_clips(self):
-        """Test that clips product_type produces /reel/ URL."""
-        mock_media = MagicMock()
-        mock_media.code = "CLIP001"
-        mock_media.product_type = "clips"
-
-        url = _media_permalink("someuser", mock_media)
-        assert "/reel/CLIP001/" in url
+    """Tests for _media_permalink using instaloader shortcode-based URLs."""
 
     def test_p_url_for_standard_posts(self):
-        """Test standard post produces /p/ URL."""
+        """Test standard post produces /p/ URL using instaloader shortcode."""
         mock_media = MagicMock()
-        mock_media.code = "POST123"
-        mock_media.product_type = ""
+        mock_media.shortcode = "POST123"
 
         url = _media_permalink("someuser", mock_media)
         assert "/p/POST123/" in url
 
-    def test_reel_url_when_product_type_is_none(self):
-        """Test None product_type defaults to /p/."""
+    def test_p_url_for_reels(self):
+        """Test reel/clip posts still use /p/ URL (instaloader convention)."""
         mock_media = MagicMock()
-        mock_media.code = "ABCDEF"
-        mock_media.product_type = None
+        mock_media.shortcode = "CLIP001"
 
-        url = _media_permalink("user", mock_media)
-        assert "/p/ABCDEF/" in url
+        url = _media_permalink("someuser", mock_media)
+        assert "/p/CLIP001/" in url
 
 
 class TestResourceToDict:
@@ -174,126 +163,128 @@ class TestResourceToDict:
 
 
 class TestDownloadMedia:
-    """Tests for _download_media using mocked client."""
+    """Tests for _download_media using instaloader's download_post."""
 
-    @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_downloads_photo_success(self, mock_sleep, tmp_path):
-        """Test successful photo download returns filename."""
+        """Test successful photo download via instaloader download_post."""
         mock_client = MagicMock()
         mock_media = MagicMock()
+        mock_media.shortcode = "PHOTO123"
         mock_media.pk = 99999
-        mock_media.code = "PHOTO123"
         mock_media.media_type = 1
-        mock_media.product_type = ""
-        mock_client.photo_download.return_value = str(tmp_path / "photo.jpg")
+        mock_media.typename = "GraphImage"
+        # Simulate files written to target directory by download_post
+        photo_file = tmp_path / "PHOTO123_12345.jpg"
+        photo_file.write_bytes(b"fake image content")
 
         result = _download_media(mock_client, mock_media, tmp_path)
 
         assert len(result) == 1
-        mock_client.photo_download.assert_called_once_with(99999, folder=tmp_path)
+        assert "PHOTO123" in result[0]
+        mock_client.download_post.assert_called_once()
 
-    @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_downloads_album_success(self, mock_sleep, tmp_path):
         """Test album download returns multiple filenames."""
         mock_client = MagicMock()
         mock_media = MagicMock()
+        mock_media.shortcode = "ALBUM1"
         mock_media.pk = 88888
-        mock_media.code = "ALBUM1"
         mock_media.media_type = 8
-        mock_media.product_type = ""
-        mock_client.album_download.return_value = [
-            str(tmp_path / "img1.jpg"),
-            str(tmp_path / "img2.jpg"),
-        ]
+        mock_media.typename = "GraphAlbum"
+        album_file1 = tmp_path / "ALBUM1_1.jpg"
+        album_file1.write_bytes(b"album image 1")
+        album_file2 = tmp_path / "ALBUM1_2.jpg"
+        album_file2.write_bytes(b"album image 2")
 
         result = _download_media(mock_client, mock_media, tmp_path)
 
         assert len(result) == 2
-        mock_client.album_download.assert_called_once_with(88888, folder=tmp_path)
+        mock_client.download_post.assert_called_once()
 
-    @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_downloads_clip_success(self, mock_sleep, tmp_path):
-        """Test clip (reel) download with product_type='clips'."""
+        """Test clip (reel) download via instaloader."""
         mock_client = MagicMock()
         mock_media = MagicMock()
+        mock_media.shortcode = "REEL123"
         mock_media.pk = 77777
-        mock_media.code = "REEL123"
         mock_media.media_type = 2
-        mock_media.product_type = "clips"
-        mock_client.clip_download.return_value = str(tmp_path / "clip.mp4")
+        mock_media.typename = "GraphVideo"
+        video_file = tmp_path / "REEL123_12345.mp4"
+        video_file.write_bytes(b"fake video content")
 
         result = _download_media(mock_client, mock_media, tmp_path)
 
         assert len(result) == 1
-        mock_client.clip_download.assert_called_once_with(77777, folder=tmp_path)
+        mock_client.download_post.assert_called_once()
 
-    @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_download_raises_media_download_error_after_retries(self, mock_sleep, tmp_path):
         """Test MediaDownloadError raised after exhausting retries."""
         mock_client = MagicMock()
         mock_media = MagicMock()
+        mock_media.shortcode = "FAIL123"
         mock_media.pk = 66666
-        mock_media.code = "FAIL123"
         mock_media.media_type = 1
-        mock_media.product_type = ""
-        mock_client.photo_download.side_effect = OSError("Network error")
+        mock_media.typename = "GraphImage"
+        mock_client.download_post.side_effect = OSError("Network error")
 
         with pytest.raises(MediaDownloadError, match="FAIL123"):
             _download_media(mock_client, mock_media, tmp_path)
 
-        assert mock_client.photo_download.call_count == MEDIA_DOWNLOAD_RETRIES
+        assert mock_client.download_post.call_count == MEDIA_DOWNLOAD_RETRIES
 
-    @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.retry.time.sleep")
     @patch("ig_scraper.config.REQUEST_PAUSE_SECONDS", 0.001)
     def test_download_retries_on_oserror(self, mock_sleep, tmp_path):
         """Test that OSError triggers retry before success."""
         mock_client = MagicMock()
         mock_media = MagicMock()
+        mock_media.shortcode = "RETRY123"
         mock_media.pk = 55555
-        mock_media.code = "RETRY123"
         mock_media.media_type = 1
-        mock_media.product_type = ""
+        mock_media.typename = "GraphImage"
 
-        # Fail first two times, succeed on third
-        mock_client.photo_download.side_effect = [
-            OSError("fail 1"),
-            OSError("fail 2"),
-            str(tmp_path / "photo.jpg"),
-        ]
+        call_count = [0]
+
+        def side_effect(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise OSError(f"fail {call_count[0]}")
+            (tmp_path / "RETRY123_12345.jpg").write_bytes(b"valid content after retry")
+
+        mock_client.download_post.side_effect = side_effect
 
         result = _download_media(mock_client, mock_media, tmp_path)
 
         assert len(result) == 1
-        assert mock_client.photo_download.call_count == 3
+        assert mock_client.download_post.call_count == 3
 
 
 class TestCommentToDict:
-    """Tests for _comment_to_dict."""
+    """Tests for _comment_to_dict using instaloader comment fields."""
 
     def test_converts_comment_fields(self):
-        """Test comment fields are correctly extracted."""
-        mock_user = MagicMock()
-        mock_user.username = "commenter"
-        mock_user.full_name = "Commenter Full"
-        mock_user.profile_pic_url = "https://example.com/pic.jpg"
+        """Test comment fields are correctly extracted from instaloader Comment."""
+        mock_owner = MagicMock()
+        mock_owner.username = "commenter"
+        mock_owner.full_name = "Commenter Full"
+        mock_owner.profile_pic_url = "https://example.com/pic.jpg"
 
         mock_comment = MagicMock()
-        mock_comment.pk = 12345
+        mock_comment.id = 12345
         mock_comment.text = "Great photo!"
-        mock_comment.user = mock_user
+        mock_comment.owner = mock_owner
         mock_comment.created_at_utc = MagicMock()
         mock_comment.created_at_utc.isoformat.return_value = "2024-01-15T10:30:00"
-        mock_comment.like_count = 15
-        mock_comment.child_comment_count = 2
+        mock_comment.likes_count = 15
+        mock_comment.answers_count = 2
 
         result = _comment_to_dict(mock_comment, "https://instagram.com/p/ABC123")
 
@@ -302,39 +293,37 @@ class TestCommentToDict:
         assert result["owner_username"] == "commenter"
         assert result["likes_count"] == 15
         assert result["replies_count"] == 2
-        # _comment_to_dict does not include 'replies' key (not in the actual contract)
         assert "replies" not in result
         assert result["post_url"] == "https://instagram.com/p/ABC123"
 
     def test_comment_to_dict_does_not_include_replies_key(self):
         """Test that _comment_to_dict output does not include a 'replies' key."""
-        mock_user = MagicMock()
-        mock_user.username = "user"
-        mock_user.full_name = ""
-        mock_user.profile_pic_url = ""
+        mock_owner = MagicMock()
+        mock_owner.username = "user"
+        mock_owner.full_name = ""
+        mock_owner.profile_pic_url = ""
 
         mock_comment = MagicMock(spec=[])
-        mock_comment.pk = 1
+        mock_comment.id = 1
         mock_comment.text = "Test"
-        mock_comment.user = mock_user
+        mock_comment.owner = mock_owner
         mock_comment.created_at_utc = None
-        mock_comment.like_count = 0
-        mock_comment.child_comment_count = 0
+        mock_comment.likes_count = 0
+        mock_comment.answers_count = 0
 
         result = _comment_to_dict(mock_comment, "https://example.com/p/1")
 
-        # _comment_to_dict output does not include a 'replies' key
         assert "replies" not in result
 
-    def test_handles_no_user(self):
-        """Test _comment_to_dict handles missing user gracefully."""
+    def test_handles_no_owner(self):
+        """Test _comment_to_dict handles missing owner gracefully."""
         mock_comment = MagicMock(spec=[])
-        mock_comment.pk = 999
+        mock_comment.id = 999
         mock_comment.text = "Anonymous comment"
-        mock_comment.user = None
+        mock_comment.owner = None
         mock_comment.created_at_utc = None
-        mock_comment.like_count = 0
-        mock_comment.child_comment_count = 0
+        mock_comment.likes_count = 0
+        mock_comment.answers_count = 0
 
         result = _comment_to_dict(mock_comment, "https://example.com/p/999")
 

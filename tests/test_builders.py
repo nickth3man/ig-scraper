@@ -17,21 +17,21 @@ class TestBuildProfileDict:
     """Tests for _build_profile_dict function."""
 
     def test_all_attributes(self):
-        """Test with mock user object having all attributes."""
-        mock_user = MagicMock()
-        mock_user.pk = 12345
-        mock_user.username = "testuser"
-        mock_user.full_name = "Test User"
-        mock_user.biography = "Test bio"
-        mock_user.follower_count = 1000
-        mock_user.following_count = 500
-        mock_user.media_count = 50
-        mock_user.is_verified = True
-        mock_user.is_business = False
-        mock_user.profile_pic_url = "https://example.com/pic.jpg"
-        mock_user.external_url = "https://example.com"
+        """Test with mock profile object having all attributes (instaloader fields)."""
+        mock_profile = MagicMock()
+        mock_profile.userid = 12345
+        mock_profile.username = "testuser"
+        mock_profile.full_name = "Test User"
+        mock_profile.biography = "Test bio"
+        mock_profile.followers = 1000
+        mock_profile.followees = 500
+        mock_profile.mediacount = 50
+        mock_profile.is_verified = True
+        mock_profile.is_business_account = False
+        mock_profile.profile_pic_url = "https://example.com/pic.jpg"
+        mock_profile.external_url = "https://example.com"
 
-        result = _build_profile_dict(mock_user)
+        result = _build_profile_dict(mock_profile)
 
         assert result["id"] == "12345"
         assert result["username"] == "testuser"
@@ -44,41 +44,41 @@ class TestBuildProfileDict:
         assert result["profile_pic_url"] == "https://example.com/pic.jpg"
         assert result["external_url"] == "https://example.com"
 
-    def test_pk_coerced_to_string(self):
-        """Test that pk is coerced to string."""
-        mock_user = MagicMock()
-        mock_user.pk = 99999
-        mock_user.username = "user"
-        mock_user.full_name = ""
-        mock_user.biography = ""
-        mock_user.follower_count = 0
-        mock_user.following_count = 0
-        mock_user.media_count = 0
-        mock_user.is_verified = False
-        mock_user.is_business = False
-        mock_user.profile_pic_url = None
-        mock_user.external_url = None
+    def test_userid_coerced_to_string(self):
+        """Test that userid is coerced to string."""
+        mock_profile = MagicMock()
+        mock_profile.userid = 99999
+        mock_profile.username = "user"
+        mock_profile.full_name = ""
+        mock_profile.biography = ""
+        mock_profile.followers = 0
+        mock_profile.followees = 0
+        mock_profile.mediacount = 0
+        mock_profile.is_verified = False
+        mock_profile.is_business_account = False
+        mock_profile.profile_pic_url = None
+        mock_profile.external_url = None
 
-        result = _build_profile_dict(mock_user)
+        result = _build_profile_dict(mock_profile)
         assert result["id"] == "99999"
         assert isinstance(result["id"], str)
 
     def test_none_optional_fields(self):
         """Test with None values for optional fields."""
-        mock_user = MagicMock()
-        mock_user.pk = 1
-        mock_user.username = "user"
-        mock_user.full_name = None
-        mock_user.biography = None
-        mock_user.follower_count = 0
-        mock_user.following_count = 0
-        mock_user.media_count = 0
-        mock_user.is_verified = False
-        mock_user.is_business = False
-        mock_user.profile_pic_url = None
-        mock_user.external_url = None
+        mock_profile = MagicMock()
+        mock_profile.userid = 1
+        mock_profile.username = "user"
+        mock_profile.full_name = None
+        mock_profile.biography = None
+        mock_profile.followers = 0
+        mock_profile.followees = 0
+        mock_profile.mediacount = 0
+        mock_profile.is_verified = False
+        mock_profile.is_business_account = False
+        mock_profile.profile_pic_url = None
+        mock_profile.external_url = None
 
-        result = _build_profile_dict(mock_user)
+        result = _build_profile_dict(mock_profile)
         assert result["profile_pic_url"] == ""
         assert result["external_url"] == ""
 
@@ -87,17 +87,21 @@ class TestBuildPostDict:
     """Tests for _build_post_dict function."""
 
     def test_mock_media_object(self):
-        """Test with mock media object."""
+        """Test with mock media object (instaloader fields)."""
         mock_media = MagicMock()
         mock_media.pk = 12345
-        mock_media.code = "ABC123"
+        mock_media.shortcode = "ABC123"
         mock_media.product_type = "post"
-        mock_media.caption_text = "Test caption"
-        mock_media.comment_count = 10
-        mock_media.like_count = 100
-        mock_media.taken_at.isoformat.return_value = "2024-01-15T10:30:00"
-        mock_media.media_type = 1
+        mock_media.caption = "Test caption"
+        mock_media.comments = 10
+        mock_media.likes = 100
+        mock_media.date_utc.isoformat.return_value = "2024-01-15T10:30:00"
+        mock_media.mediatype = 1
         mock_media.resources = []
+        mock_media.typename = "GraphImage"
+        mock_media.video_url = ""
+        mock_media.url = "https://instagram.com/p/ABC123/"
+        mock_media.is_video = False
 
         result = _build_post_dict(
             media=mock_media,
@@ -126,14 +130,18 @@ class TestBuildPostDict:
 
         mock_media = MagicMock()
         mock_media.pk = 12345
-        mock_media.code = "ABC123"
+        mock_media.shortcode = "ABC123"
         mock_media.product_type = ""
-        mock_media.caption_text = ""
-        mock_media.comment_count = 0
-        mock_media.like_count = 0
-        mock_media.taken_at.isoformat.return_value = ""
-        mock_media.media_type = 8
+        mock_media.caption = ""
+        mock_media.comments = 0
+        mock_media.likes = 0
+        mock_media.date_utc.isoformat.return_value = ""
+        mock_media.mediatype = 8
         mock_media.resources = [mock_res]
+        mock_media.typename = "GraphMedia"
+        mock_media.video_url = ""
+        mock_media.url = ""
+        mock_media.is_video = False
 
         result = _build_post_dict(
             media=mock_media,
@@ -152,14 +160,18 @@ class TestBuildPostDict:
         """Test post_folder is empty when account_dir is None."""
         mock_media = MagicMock()
         mock_media.pk = 1
-        mock_media.code = "ABC123"
+        mock_media.shortcode = "ABC123"
         mock_media.product_type = ""
-        mock_media.caption_text = ""
-        mock_media.comment_count = 0
-        mock_media.like_count = 0
-        mock_media.taken_at.isoformat.return_value = ""
-        mock_media.media_type = 1
+        mock_media.caption = ""
+        mock_media.comments = 0
+        mock_media.likes = 0
+        mock_media.date_utc.isoformat.return_value = ""
+        mock_media.mediatype = 1
         mock_media.resources = []
+        mock_media.typename = "GraphImage"
+        mock_media.video_url = ""
+        mock_media.url = ""
+        mock_media.is_video = False
 
         result = _build_post_dict(
             media=mock_media,
@@ -212,14 +224,23 @@ class TestProcessSingleMedia:
         mock_client = MagicMock()
         mock_media = MagicMock()
         mock_media.pk = 12345
-        mock_media.code = "ABC123"
-        mock_media.media_type = 1
+        mock_media.shortcode = "ABC123"
+        mock_media.mediatype = 1
         mock_media.product_type = ""
-        mock_media.like_count = 100
-        mock_media.comment_count = 10
-        mock_user = MagicMock()
-        mock_user.full_name = "Test User"
-        mock_user.pk = "99999"
+        mock_media.likes = 100
+        mock_media.comments = 10
+        mock_media.mediaid = 12345
+        mock_media.date_utc = MagicMock()
+        mock_media.typename = "GraphImage"
+        mock_media.caption = "Test caption"
+        mock_media.video_url = ""
+        mock_media.url = "https://instagram.com/p/ABC123/"
+        mock_media.is_video = False
+        mock_media.resources = []
+        mock_profile = MagicMock()
+        mock_profile.username = "testuser"
+        mock_profile.full_name = "Test User"
+        mock_profile.userid = 99999
 
         mock_permalink.return_value = "https://instagram.com/p/ABC123/"
         mock_download.return_value = ["photo.jpg"]
@@ -229,7 +250,7 @@ class TestProcessSingleMedia:
             client=mock_client,
             media=mock_media,
             username="testuser",
-            user=mock_user,
+            profile_obj=mock_profile,
             account_dir=None,
             posts_root=None,
             index=1,
@@ -249,14 +270,23 @@ class TestProcessSingleMedia:
         mock_client = MagicMock()
         mock_media = MagicMock()
         mock_media.pk = 12345
-        mock_media.code = "ABC123"
-        mock_media.media_type = 1
+        mock_media.shortcode = "ABC123"
+        mock_media.mediatype = 1
         mock_media.product_type = ""
-        mock_media.like_count = 100
-        mock_media.comment_count = 10
-        mock_user = MagicMock()
-        mock_user.full_name = "Test User"
-        mock_user.pk = "99999"
+        mock_media.likes = 100
+        mock_media.comments = 10
+        mock_media.mediaid = 12345
+        mock_media.date_utc = MagicMock()
+        mock_media.typename = "GraphImage"
+        mock_media.caption = "Test caption"
+        mock_media.video_url = ""
+        mock_media.url = "https://instagram.com/p/ABC123/"
+        mock_media.is_video = False
+        mock_media.resources = []
+        mock_profile = MagicMock()
+        mock_profile.username = "testuser"
+        mock_profile.full_name = "Test User"
+        mock_profile.userid = 99999
 
         mock_permalink.return_value = "https://instagram.com/p/ABC123/"
         mock_download.side_effect = MediaDownloadError("Download failed")
@@ -266,7 +296,7 @@ class TestProcessSingleMedia:
             client=mock_client,
             media=mock_media,
             username="testuser",
-            user=mock_user,
+            profile_obj=mock_profile,
             account_dir=None,
             posts_root=None,
             index=1,
@@ -287,15 +317,23 @@ class TestProcessSingleMedia:
             mock_client = MagicMock()
             mock_media = MagicMock()
             mock_media.pk = 12345
-            mock_media.code = "ABC123"
-            mock_media.id = 99999
-            mock_media.media_type = 1
+            mock_media.shortcode = "ABC123"
+            mock_media.mediatype = 1
             mock_media.product_type = ""
-            mock_media.like_count = 100
-            mock_media.comment_count = 10
-            mock_user = MagicMock()
-            mock_user.full_name = "Test User"
-            mock_user.pk = "99999"
+            mock_media.likes = 100
+            mock_media.comments = 10
+            mock_media.mediaid = 99999
+            mock_media.date_utc = MagicMock()
+            mock_media.typename = "GraphImage"
+            mock_media.caption = "Test caption"
+            mock_media.video_url = ""
+            mock_media.url = "https://instagram.com/p/ABC123/"
+            mock_media.is_video = False
+            mock_media.resources = []
+            mock_profile = MagicMock()
+            mock_profile.username = "testuser"
+            mock_profile.full_name = "Test User"
+            mock_profile.userid = 99999
 
             mock_permalink.return_value = "https://instagram.com/p/ABC123/"
             mock_download.return_value = []
@@ -305,7 +343,7 @@ class TestProcessSingleMedia:
                 client=mock_client,
                 media=mock_media,
                 username="testuser",
-                user=mock_user,
+                profile_obj=mock_profile,
                 account_dir=None,
                 posts_root=None,
                 index=1,
@@ -324,15 +362,23 @@ class TestProcessSingleMedia:
         mock_client = MagicMock()
         mock_media = MagicMock()
         mock_media.pk = 12345
-        mock_media.code = "ABC123"
-        mock_media.id = 99999
-        mock_media.media_type = 1
+        mock_media.shortcode = "ABC123"
+        mock_media.mediatype = 1
         mock_media.product_type = ""
-        mock_media.like_count = 100
-        mock_media.comment_count = 10
-        mock_user = MagicMock()
-        mock_user.full_name = "Test User"
-        mock_user.pk = "99999"
+        mock_media.likes = 100
+        mock_media.comments = 10
+        mock_media.mediaid = 99999
+        mock_media.date_utc = MagicMock()
+        mock_media.typename = "GraphImage"
+        mock_media.caption = "Test caption"
+        mock_media.video_url = ""
+        mock_media.url = "https://instagram.com/p/ABC123/"
+        mock_media.is_video = False
+        mock_media.resources = []
+        mock_profile = MagicMock()
+        mock_profile.username = "testuser"
+        mock_profile.full_name = "Test User"
+        mock_profile.userid = 99999
 
         mock_permalink.return_value = "https://instagram.com/p/ABC123/"
         mock_download.return_value = []
@@ -342,7 +388,7 @@ class TestProcessSingleMedia:
             client=mock_client,
             media=mock_media,
             username="testuser",
-            user=mock_user,
+            profile_obj=mock_profile,
             account_dir=None,
             posts_root=None,
             index=1,

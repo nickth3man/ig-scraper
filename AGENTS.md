@@ -1,4 +1,3 @@
-# Agent Instructions
 
 ## Shell Requirement
 
@@ -20,7 +19,50 @@ For example, use `VAR=value command` or `export VAR=value`, not `$env:VAR='value
   - Right: `CI='true' GIT_PAGER='cat' git status --short`
   - Right: `export CI='true' GIT_PAGER='cat'` then run the command
 - Before running any command on Windows, quickly sanity-check that every token is valid **bash** syntax.
-- If you see `$env:` anywhere in a command, stop and rewrite it before execution.
+
+## Search Tooling
+
+When beginning any search for files or specific code in the codebase, **always** use the following tools:
+
+### 1. `tree` - Visual Directory Structure
+
+Use `tree` to understand the project layout before diving into specific files:
+
+```bash
+# Show entire project structure
+tree
+
+# Show specific directory
+tree src/
+
+# Limit depth
+tree -L 2
+```
+
+### 2. `rg` (ripgrep) - Fast Code Search
+
+Use `rg` (ripgrep) for fast, recursive code searching across the entire codebase:
+
+```bash
+# Search for a pattern in all files
+rg "pattern"
+
+# Search in specific file types
+rg "pattern" --type py
+
+# Search with context lines
+rg -C 3 "pattern"
+
+# Search only in src/
+rg "pattern" src/
+```
+
+**Why these tools?**
+- `tree` gives instant visual context of project structure
+- `rg` is faster than grep, respects .gitignore, and has better defaults
+- Both are cross-platform and available in this environment
+
+Start with `tree` to orient yourself, then use `rg` to find specific code patterns.
 
 ## Post-Edit Workflow
 

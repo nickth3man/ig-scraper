@@ -33,6 +33,8 @@ class TestProfileRegression:
             is_business_account=False,
             profile_pic_url="https://example.com/pic.jpg",
             external_url="https://example.com",
+            is_private=False,
+            igtv_count=1166,
         )
         data_regression.check(profile.to_dict())
 

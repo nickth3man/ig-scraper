@@ -4,7 +4,9 @@ followers_count: 5000
 follows_count: 200
 full_name: Regression Test
 id: regression_001
+igtv_count: 1166
 is_business_account: false
+is_private: false
 posts_count: 100
 profile_pic_url: https://example.com/pic.jpg
 username: regtest_user

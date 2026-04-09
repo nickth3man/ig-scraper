@@ -47,6 +47,7 @@ class Post:
     media_files: list[str] = field(default_factory=list)
     post_folder: str = ""
     from_url: str = ""
+    view_count: int = 0
     _profile: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
@@ -96,6 +97,56 @@ class Post:
             thumbnail_url=str(getattr(media, "thumbnail_url", "")),
             is_video=getattr(media, "media_type", 0) == 2,
             resources=resources,
+        )
+
+    @classmethod
+    def from_instaloader_post(
+        cls, post: Any, username: str, user_full_name: str, user_id: str
+    ) -> Post:
+        """Create Post from instaloader Post object."""
+        logger.debug(
+            "Built post | %s",
+            format_kv(
+                raw_pk=getattr(post, "pk", "MISSING"),
+                raw_shortcode=getattr(post, "shortcode", "MISSING"),
+                raw_media_type=type(getattr(post, "media_type", 0)).__name__,
+                rawtypename=getattr(post, "typename", "MISSING"),
+                raw_caption_len=len(getattr(post, "caption", "") or ""),
+                raw_date_utc=str(getattr(post, "date_utc", "MISSING")),
+            ),
+        )
+        url = f"https://www.instagram.com/p/{post.shortcode}/"
+        resources = [
+            PostResource(
+                pk=str(getattr(r, "pk", "")),
+                media_type=int(getattr(r, "media_type", 0)),
+                thumbnail_url=str(getattr(r, "thumbnail_url", "")),
+                video_url=str(getattr(r, "video_url", "")),
+            )
+            for r in getattr(post, "resources", [])
+        ]
+        hashtags = [str(h) for h in getattr(post, "caption_hashtags", [])]
+        mentions = [str(m) for m in getattr(post, "caption_mentions", [])]
+        return cls(
+            id=str(getattr(post, "pk", "")),
+            pk=str(getattr(post, "pk", "")),
+            short_code=post.shortcode,
+            url=url,
+            type=str(getattr(post, "typename", "") or getattr(post, "media_type", "")) or "",
+            caption=getattr(post, "caption", "") or "",
+            comment_count=getattr(post, "comments", 0) or 0,
+            like_count=getattr(post, "likes", 0) or 0,
+            taken_at=getattr(post, "date_utc", None),
+            owner_username=username,
+            owner_full_name=user_full_name,
+            owner_id=str(user_id),
+            video_url=str(getattr(post, "video_url", "")),
+            thumbnail_url=str(getattr(post, "url", "")),
+            is_video=getattr(post, "is_video", False),
+            resources=resources,
+            hashtags=hashtags,
+            mentions=mentions,
+            view_count=getattr(post, "view_count", 0) or 0,
         )
 
     def to_dict(self) -> dict[str, Any]:

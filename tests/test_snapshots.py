@@ -31,6 +31,8 @@ class TestProfileSnapshot:
             is_business_account=False,
             profile_pic_url="https://example.com/pic.jpg",
             external_url="https://example.com",
+            is_private=False,
+            igtv_count=0,
         )
         assert profile.to_dict() == snapshot(
             {
@@ -45,6 +47,8 @@ class TestProfileSnapshot:
                 "is_business_account": False,
                 "profile_pic_url": "https://example.com/pic.jpg",
                 "external_url": "https://example.com",
+                "is_private": False,
+                "igtv_count": 0,
             }
         )
 
@@ -76,6 +80,7 @@ class TestPostSnapshot:
             media_files=[],
             post_folder="",
             from_url="",
+            view_count=0,
         )
         assert post.to_dict() == snapshot(
             {
@@ -100,6 +105,7 @@ class TestPostSnapshot:
                 "media_files": [],
                 "post_folder": "",
                 "from_url": "",
+                "view_count": 0,
             }
         )
 

@@ -26,6 +26,8 @@ class Profile:
     is_business_account: bool
     profile_pic_url: str
     external_url: str
+    is_private: bool = False
+    igtv_count: int = 0
     _method: str = field(default="instagrapi", repr=False)
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,5 +59,34 @@ class Profile:
             is_business_account=getattr(user, "is_business", False),
             profile_pic_url=str(getattr(user, "profile_pic_url", "") or ""),
             external_url=str(getattr(user, "external_url", "") or ""),
+            _method=method,
+        )
+
+    @classmethod
+    def from_instaloader_profile(cls, profile: Any, method: str = "instaloader") -> Profile:
+        """Create Profile from instaloader Profile object."""
+        logger.debug(
+            "Built profile | %s",
+            format_kv(
+                raw_userid=getattr(profile, "userid", "MISSING"),
+                raw_username=getattr(profile, "username", "MISSING"),
+                raw_follower_count_type=type(getattr(profile, "followers", 0)).__name__,
+                raw_is_verified=getattr(profile, "is_verified", "MISSING"),
+            ),
+        )
+        return cls(
+            id=str(getattr(profile, "userid", "")),
+            username=getattr(profile, "username", ""),
+            full_name=getattr(profile, "full_name", ""),
+            biography=getattr(profile, "biography", ""),
+            followers_count=getattr(profile, "followers", 0),
+            follows_count=getattr(profile, "followees", 0),
+            posts_count=getattr(profile, "mediacount", 0),
+            verified=getattr(profile, "is_verified", False),
+            is_business_account=getattr(profile, "is_business_account", False),
+            profile_pic_url=str(getattr(profile, "profile_pic_url", "") or ""),
+            external_url=str(getattr(profile, "external_url", "") or ""),
+            is_private=getattr(profile, "is_private", False),
+            igtv_count=getattr(profile, "igtvcount", 0) or 0,
             _method=method,
         )

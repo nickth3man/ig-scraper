@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Instagram scraping tool"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["instagrapi~=2.1.5", "python-dotenv>=1.2.0", "requests>=2.33.0"]
+dependencies = ["instaloader>=4.15.1", "Pillow>=8.1.1", "python-dotenv>=1.2.0", "requests>=2.33.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -145,7 +145,15 @@ dev = [
     "inline-snapshot>=0.20",
     "pytest-regressions>=2.0",
     "pytest-bdd>=8.0",
+    "bandit>=1.7.0",  # Security linting
+    "invoke>=2.0",  # Task automation
+    "prospector[with_mypy,with_bandit]>=1.10",  # Comprehensive analysis
 ]
+
+[tool.bandit]
+exclude_dirs = ["tests", "scripts", ".venv", ".git"]
+skips = ["B101"]  # Allow asserts in non-test code if needed
 
 [tool.uv.pip]
 generate-hashes = true
+

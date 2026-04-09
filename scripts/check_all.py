@@ -18,6 +18,7 @@ STEPS: list[tuple[str, list[str]]] = [
     ("mypy (type checking)", ["uv", "run", "mypy", "src/"]),
     ("ruff check (lint)", ["uv", "run", "ruff", "check", "."]),
     ("ruff format (check)", ["uv", "run", "ruff", "format", "--check", "."]),
+    ("bandit (security)", ["uv", "run", "bandit", "-c", "pyproject.toml", "-r", "src/", "-ll"]),
     ("pytest (tests)", ["uv", "run", "pytest"]),
     ("file length check", ["uv", "run", "python", str(SCRIPTS_DIR / "check_file_length.py")]),
 ]

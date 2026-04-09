@@ -1,4 +1,4 @@
-"""Instagram authentication client for obtaining an authenticated instagrapi Client."""
+"""Instagram authentication client for obtaining an authenticated instaloader Instaloader."""
 
 from __future__ import annotations
 
@@ -7,13 +7,11 @@ import time
 from pathlib import Path
 
 from dotenv import load_dotenv
-from instagrapi import Client
-from instagrapi.exceptions import (
-    ChallengeRequired,
-    ClientThrottledError,
-    FeedbackRequired,
-    LoginRequired,
-    PleaseWaitFewMinutes,
+from instaloader import Instaloader, Profile
+from instaloader.exceptions import (
+    BadCredentialsException,
+    ConnectionException,
+    TwoFactorAuthRequiredException,
 )
 
 from ig_scraper.exceptions import AuthError, IgScraperError
@@ -30,68 +28,141 @@ def _load_env() -> None:
     load_dotenv(env_path)
 
 
-def get_instagram_client() -> Client:
-    """Create and authenticate Instagram client."""
+def get_instaloader_client() -> Instaloader:
+    """Create and authenticate Instaloader client with fallback auth methods."""
     _load_env()
     env_path = Path(__file__).resolve().parents[2] / ".env"
     sessionid = os.getenv("INSTAGRAM_SESSIONID", "").strip()
+    username = os.getenv("INSTAGRAM_USERNAME", "").strip()
+    password = os.getenv("INSTAGRAM_PASSWORD", "").strip()
     logger.debug(
         "Environment loaded | %s",
         format_kv(
             env_path=str(env_path),
             env_exists=env_path.exists(),
             sessionid_present=bool(sessionid),
-            sessionid_length=len(sessionid),
+            username_present=bool(username),
+            password_present=bool(password),
         ),
     )
-    if not sessionid:
-        raise IgScraperError("INSTAGRAM_SESSIONID is missing from .env")
+
+    if not sessionid and not (username and password):
+        raise IgScraperError(
+            "Either INSTAGRAM_SESSIONID or INSTAGRAM_USERNAME/INSTAGRAM_PASSWORD must be set in .env"
+        )
 
     logger.info(
-        "Preparing Instagram client | %s",
-        format_kv(session_length=len(sessionid)),
-    )
-    request_timeout = int(os.getenv("IG_REQUEST_TIMEOUT_SECONDS", "30"))
-    client = Client()
-    client.request_timeout = request_timeout
-    logger.debug(
-        "Client configured | %s",
-        format_kv(request_timeout=request_timeout),
+        "Preparing Instaloader client | %s",
+        format_kv(
+            auth_method="sessionid" if sessionid else "username/password",
+            session_length=len(sessionid) if sessionid else 0,
+        ),
     )
 
+    # Instaloader automatically handles rate limiting with sleep=True
+    loader = Instaloader(
+        sleep=True,
+        max_connection_attempts=3,
+        quiet=False,
+    )
+    logger.debug("Instaloader configured with built-in rate limiting")
+
     try:
-        logger.debug("Authenticating via session id")
-        t0_login = time.perf_counter()
-        client.login_by_sessionid(sessionid)
-        elapsed_login = round(time.perf_counter() - t0_login, 3)
-        logger.debug("Session login accepted | %s", format_kv(elapsed_seconds=elapsed_login))
+        auth_method = None
+        elapsed_login = 0.0
+
+        # Try session from file if sessionid provided (instaloader uses session files internally)
+        if sessionid and username:
+            session_file = Path.home() / ".config" / "instaloader" / f"session-{username}"
+            if session_file.exists():
+                try:
+                    logger.debug(
+                        "Loading session from file | %s", format_kv(session_file=session_file)
+                    )
+                    t0_login = time.perf_counter()
+                    loader.load_session_from_file(username)
+                    # Verify session is valid
+                    if not loader.test_login():
+                        raise AuthError("Loaded session is invalid")
+                    elapsed_login = round(time.perf_counter() - t0_login, 3)
+                    logger.debug(
+                        "Session file loaded and verified | %s",
+                        format_kv(elapsed_seconds=elapsed_login),
+                    )
+                    auth_method = "session_file"
+                except Exception as e:
+                    logger.info(
+                        "Session file invalid or expired | %s",
+                        format_kv(error=str(e), session_file=session_file),
+                    )
+                    # Fall through to username/password login
+
+        # Username/password authentication
+        if auth_method is None and username and password:
+            logger.debug("Authenticating via username/password")
+            t0_login = time.perf_counter()
+            try:
+                loader.login(username, password)
+                elapsed_login = round(time.perf_counter() - t0_login, 3)
+                logger.debug(
+                    "Username/password login accepted | %s",
+                    format_kv(elapsed_seconds=elapsed_login),
+                )
+                auth_method = "username/password"
+                # Save session for future use
+                loader.save_session_to_file(username)
+                logger.info("Session saved for future use")
+            except TwoFactorAuthRequiredException as e:
+                logger.error("Two-factor authentication required but not implemented")
+                raise AuthError(
+                    "Two-factor authentication is not supported. "
+                    "Please disable 2FA on your Instagram account or use a session file."
+                ) from e
+            except BadCredentialsException as e:
+                logger.error("Invalid credentials")
+                raise AuthError(
+                    "Invalid Instagram credentials. Check username and password."
+                ) from e
+            except ConnectionException as e:
+                logger.error("Connection error during login | %s", format_kv(error=str(e)))
+                raise AuthError(f"Connection error during Instagram login: {e}") from e
+
+        if auth_method is None:
+            raise IgScraperError("No authentication method succeeded")
+
         logger.debug("Validating account access")
         t0_account = time.perf_counter()
-        account = client.account_info()
+        # Verify login by loading profile
+        account = Profile.from_username(loader.context, username)
         elapsed_account = round(time.perf_counter() - t0_account, 3)
         logger.debug(
-            "account_info() returned | %s",
+            "Profile.from_username returned | %s",
             format_kv(
                 elapsed_seconds=elapsed_account,
-                pk=account.pk,
                 username=account.username,
-                is_private=getattr(account, "is_private", False),
-                is_verified=getattr(account, "is_verified", False),
-                is_business=getattr(account, "is_business", False),
-                account_type=getattr(account, "account_type", 0),
+                user_id=account.userid,
+                is_private=account.is_private,
+                is_verified=account.is_verified,
             ),
         )
         logger.info(
             "Authenticated successfully | %s",
-            format_kv(username=account.username, account_pk=account.pk),
+            format_kv(username=account.username, account_id=account.userid),
         )
-    except (
-        LoginRequired,
-        ChallengeRequired,
-        ClientThrottledError,
-        FeedbackRequired,
-        PleaseWaitFewMinutes,
-    ) as exc:
+    except ConnectionException as exc:
+        exc_type = type(exc).__name__
+        logger.debug(
+            "Auth failed | %s",
+            format_kv(
+                exc_type=exc_type,
+                exc_args=str(exc.args)[:200],
+            ),
+        )
+        logger.exception("Instagram connection error during authentication")
+        raise AuthError(f"Instagram connection error: {exc}") from exc
+    except (AuthError, IgScraperError):
+        raise
+    except Exception as exc:
         exc_type = type(exc).__name__
         exc_args_str = str(exc.args)
         exc_args_truncated = exc_args_str[:200] if len(exc_args_str) > 200 else exc_args_str
@@ -107,4 +178,4 @@ def get_instagram_client() -> Client:
         logger.exception("Instagram authentication failed")
         raise AuthError(f"Instagram authentication failed: {exc}") from exc
 
-    return client
+    return loader
