@@ -5,10 +5,11 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from ig_scraper.ig_config import COMMENTS_PAGE_SIZE, REQUEST_PAUSE_SECONDS, _sleep
-from ig_scraper.ig_retry import _RetryExhaustedError, retry_on
+from ig_scraper.config import COMMENTS_PAGE_SIZE, REQUEST_PAUSE_SECONDS, _sleep
+from ig_scraper.exceptions import RetryExhaustedError as _RetryExhaustedError
 from ig_scraper.logging_utils import format_kv, get_logger
 from ig_scraper.models import Comment
+from ig_scraper.retry import retry_on
 
 
 logger = get_logger("instagrapi")

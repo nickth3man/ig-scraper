@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from ig_scraper.builders import (
-    _build_post_dict,
+from ig_scraper.exceptions import MediaDownloadError
+from ig_scraper.media_processing import _build_post_dict
+from ig_scraper.scraper import (
     _build_profile_dict,
     _log_medias_fetch_attempt,
     _log_profile_fetch_attempt,
 )
-from ig_scraper.errors import MediaDownloadError
 
 
 class TestBuildProfileDict:
@@ -181,7 +181,7 @@ class TestLogFunctions:
     def test_log_profile_fetch_attempt(self):
         """Test profile fetch attempt logs warning using mock."""
         mock_logger = MagicMock()
-        with patch("ig_scraper.builders.logger", mock_logger):
+        with patch("ig_scraper.scraper.logger", mock_logger):
             exc = RuntimeError("Profile fetch failed")
             _log_profile_fetch_attempt("testuser", 1, exc, 1.0)
             mock_logger.warning.assert_called_once()
@@ -191,7 +191,7 @@ class TestLogFunctions:
     def test_log_medias_fetch_attempt(self):
         """Test medias fetch attempt logs warning using mock."""
         mock_logger = MagicMock()
-        with patch("ig_scraper.builders.logger", mock_logger):
+        with patch("ig_scraper.scraper.logger", mock_logger):
             exc = RuntimeError("Medias fetch failed")
             _log_medias_fetch_attempt("testuser", 2, exc, 2.0)
             mock_logger.warning.assert_called_once()
@@ -202,12 +202,12 @@ class TestLogFunctions:
 class TestProcessSingleMedia:
     """Tests for _process_single_media function."""
 
-    @patch("ig_scraper.ig_media_processing._download_media")
-    @patch("ig_scraper.ig_media_processing._fetch_all_comments")
-    @patch("ig_scraper.ig_media_processing._media_permalink")
+    @patch("ig_scraper.media_processing._download_media")
+    @patch("ig_scraper.media_processing._fetch_all_comments")
+    @patch("ig_scraper.media_processing._media_permalink")
     def test_success(self, mock_permalink, mock_fetch, mock_download):
         """Test successful media processing."""
-        from ig_scraper.ig_media_processing import _process_single_media
+        from ig_scraper.media_processing import _process_single_media
 
         mock_client = MagicMock()
         mock_media = MagicMock()
@@ -239,12 +239,12 @@ class TestProcessSingleMedia:
         assert post["short_code"] == "ABC123"
         assert len(comments) == 1
 
-    @patch("ig_scraper.ig_media_processing._download_media")
-    @patch("ig_scraper.ig_media_processing._fetch_all_comments")
-    @patch("ig_scraper.ig_media_processing._media_permalink")
+    @patch("ig_scraper.media_processing._download_media")
+    @patch("ig_scraper.media_processing._fetch_all_comments")
+    @patch("ig_scraper.media_processing._media_permalink")
     def test_media_download_error_continues(self, mock_permalink, mock_fetch, mock_download):
         """Test MediaDownloadError handling continues with empty media_files."""
-        from ig_scraper.ig_media_processing import _process_single_media
+        from ig_scraper.media_processing import _process_single_media
 
         mock_client = MagicMock()
         mock_media = MagicMock()
@@ -276,12 +276,12 @@ class TestProcessSingleMedia:
         assert post["short_code"] == "ABC123"
         assert media_files == []
 
-    @patch("ig_scraper.ig_media_processing._download_media")
-    @patch("ig_scraper.ig_media_processing._fetch_all_comments")
-    @patch("ig_scraper.ig_media_processing._media_permalink")
+    @patch("ig_scraper.media_processing._download_media")
+    @patch("ig_scraper.media_processing._fetch_all_comments")
+    @patch("ig_scraper.media_processing._media_permalink")
     def test_comment_errors_continue(self, mock_permalink, mock_fetch, mock_download):
         """Test comment fetch error handling for RuntimeError, ConnectionError, TimeoutError."""
-        from ig_scraper.ig_media_processing import _process_single_media
+        from ig_scraper.media_processing import _process_single_media
 
         for exc_type in [RuntimeError, ConnectionError, TimeoutError]:
             mock_client = MagicMock()
@@ -314,12 +314,12 @@ class TestProcessSingleMedia:
 
             assert comments == []
 
-    @patch("ig_scraper.ig_media_processing._download_media")
-    @patch("ig_scraper.ig_media_processing._fetch_all_comments")
-    @patch("ig_scraper.ig_media_processing._media_permalink")
+    @patch("ig_scraper.media_processing._download_media")
+    @patch("ig_scraper.media_processing._fetch_all_comments")
+    @patch("ig_scraper.media_processing._media_permalink")
     def test_none_account_dir_and_posts_root(self, mock_permalink, mock_fetch, mock_download):
         """Test with None account_dir and posts_root."""
-        from ig_scraper.ig_media_processing import _process_single_media
+        from ig_scraper.media_processing import _process_single_media
 
         mock_client = MagicMock()
         mock_media = MagicMock()

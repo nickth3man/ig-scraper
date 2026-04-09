@@ -6,10 +6,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ig_scraper.errors import MediaDownloadError
-from ig_scraper.ig_config import MEDIA_DOWNLOAD_RETRIES, REQUEST_PAUSE_SECONDS
-from ig_scraper.ig_retry import _RetryExhaustedError, retry_on
+from ig_scraper.config import MEDIA_DOWNLOAD_RETRIES, REQUEST_PAUSE_SECONDS
+from ig_scraper.exceptions import MediaDownloadError
+from ig_scraper.exceptions import RetryExhaustedError as _RetryExhaustedError
 from ig_scraper.logging_utils import format_kv, get_logger
+from ig_scraper.retry import retry_on
 
 
 logger = get_logger("instagrapi")

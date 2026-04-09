@@ -16,7 +16,7 @@ from instagrapi.exceptions import (
     PleaseWaitFewMinutes,
 )
 
-from ig_scraper.errors import AuthError, IgScraperError
+from ig_scraper.exceptions import AuthError, IgScraperError
 from ig_scraper.logging_utils import format_kv, get_logger
 
 

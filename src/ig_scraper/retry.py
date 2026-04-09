@@ -4,9 +4,7 @@ This module provides two APIs for retrying operations:
 1. Function-based: _retry_with_backoff() - backward compatible, uses functools.partial
 2. Decorator-based: @retry_on() - modern pattern, cleaner for new code
 
-Exception Classification:
-- RETRYABLE: Transient failures that might succeed on retry
-- FATAL: Permanent failures that won't succeed on retry
+Exception classification is delegated to ig_scraper.exceptions.classify_exception.
 """
 
 from __future__ import annotations
@@ -15,7 +13,9 @@ import functools
 import time
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from ig_scraper.ig_config import REQUEST_PAUSE_SECONDS
+from ig_scraper.config import REQUEST_PAUSE_SECONDS
+from ig_scraper.exceptions import RetryExhaustedError as _RetryExhaustedError
+from ig_scraper.exceptions import classify_exception
 from ig_scraper.logging_utils import format_kv, get_logger
 
 
@@ -25,47 +25,6 @@ if TYPE_CHECKING:
 logger = get_logger("instagrapi")
 
 T = TypeVar("T")
-
-
-class _RetryExhaustedError(Exception):
-    """Raised internally when all retry attempts are spent and caller should handle exhaustion."""
-
-
-# Exception Classification
-def classify_exception(exc: Exception) -> bool:
-    """Classify if an exception is retryable.
-
-    Args:
-        exc: The exception to classify.
-
-    Returns:
-        True if the exception is retryable (transient), False if fatal.
-
-    Retryable exceptions (transient failures):
-    - RuntimeError: General API errors, rate limiting
-    - ConnectionError: Network issues
-    - TimeoutError: Request timeouts
-
-    Fatal exceptions (should not retry):
-    - LoginRequired: Authentication failure
-    - AuthError: Authentication failure
-    - ValueError: Invalid input (won't change on retry)
-    """
-    retryable_types = (RuntimeError, ConnectionError, TimeoutError)
-    fatal_types = (
-        "LoginRequired",
-        "ChallengeRequired",
-        "AuthError",
-        "IgScraperError",
-    )
-
-    # Check if exception type matches retryable types
-    if isinstance(exc, retryable_types):
-        return True
-
-    # Check exception class name for specific fatal exceptions
-    exc_type_name = type(exc).__name__
-    return exc_type_name not in fatal_types
 
 
 def _retry_with_backoff[T](

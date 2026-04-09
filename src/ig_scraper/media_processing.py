@@ -5,11 +5,11 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
-from ig_scraper.builders import _build_post_dict
-from ig_scraper.errors import MediaDownloadError
-from ig_scraper.ig_comments import _fetch_all_comments
-from ig_scraper.ig_media import _download_media, _media_permalink
+from ig_scraper.comments import _fetch_all_comments
+from ig_scraper.exceptions import MediaDownloadError
 from ig_scraper.logging_utils import format_kv, get_logger
+from ig_scraper.media import _download_media, _media_permalink
+from ig_scraper.models import Post
 
 
 if TYPE_CHECKING:
@@ -17,6 +17,45 @@ if TYPE_CHECKING:
 
 
 logger = get_logger("instagrapi")
+
+
+def _build_post_dict(
+    media: Any,
+    username: str,
+    user_full_name: str,
+    user_pk: str,
+    media_url: str,
+    media_files: list[str],
+    post_folder: Path | None,
+    account_dir: Path | None,
+) -> dict[str, Any]:
+    """Convert an instagrapi Media object to a post dictionary."""
+    logger.debug(
+        "Building post dict | %s",
+        format_kv(
+            shortcode=getattr(media, "code", "MISSING"),
+            media_pk=getattr(media, "pk", "MISSING"),
+            has_caption=bool(getattr(media, "caption_text", "")),
+            caption_length=len(getattr(media, "caption_text", "") or ""),
+            media_type=getattr(media, "media_type", "MISSING"),
+            product_type=getattr(media, "product_type", "MISSING"),
+            resources_count=len(getattr(media, "resources", [])),
+            like_count=getattr(media, "like_count", "MISSING"),
+            comment_count=getattr(media, "comment_count", "MISSING"),
+            taken_at=str(getattr(media, "taken_at", "MISSING")),
+            media_files_count=len(media_files),
+            post_folder=str(post_folder) if post_folder else "None",
+        ),
+    )
+    post = Post.from_instagrapi_media(media, username, user_full_name, user_pk)
+    d = post.to_dict()
+    # Overlay runtime-only fields not in the model's to_dict()
+    d["media_files"] = media_files
+    d["post_folder"] = (
+        str(post_folder.relative_to(account_dir)) if post_folder and account_dir else ""
+    )
+    d["from_url"] = f"https://www.instagram.com/{username}/"
+    return d
 
 
 def _process_single_media(
@@ -61,8 +100,8 @@ def _process_single_media(
             target_folder=post_folder,
         ),
     )
+    t0_dl = time.perf_counter()
     try:
-        t0_dl = time.perf_counter()
         media_files = _download_media(client, media, media_folder) if media_folder else []
         elapsed_dl = round(time.perf_counter() - t0_dl, 3)
         logger.info(
@@ -88,12 +127,12 @@ def _process_single_media(
         post_folder=post_folder,
         account_dir=account_dir,
     )
+    t0_cmt = time.perf_counter()
     try:
         logger.info(
             "Starting full comment pagination | %s",
             format_kv(shortcode=media.code, media_id=media.id, media_url=media_url),
         )
-        t0_cmt = time.perf_counter()
         media_comments = _fetch_all_comments(client, media.id, media_url)
         elapsed_cmt = round(time.perf_counter() - t0_cmt, 3)
         logger.info(

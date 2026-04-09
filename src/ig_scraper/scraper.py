@@ -6,16 +6,66 @@ import functools
 import time
 from typing import TYPE_CHECKING, Any
 
-from ig_scraper.builders import (
-    _build_profile_dict,
-    _log_medias_fetch_attempt,
-    _log_profile_fetch_attempt,
-)
-from ig_scraper.ig_config import COMMENT_PAGE_RETRIES, _sleep
-from ig_scraper.ig_media_processing import _process_single_media
-from ig_scraper.ig_retry import _retry_with_backoff
-from ig_scraper.instagram_client import get_instagram_client
+from ig_scraper.client import get_instagram_client
+from ig_scraper.config import COMMENT_PAGE_RETRIES, _sleep
 from ig_scraper.logging_utils import format_kv, get_logger
+from ig_scraper.media_processing import _process_single_media
+from ig_scraper.models import Profile
+from ig_scraper.retry import _retry_with_backoff
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+logger = get_logger("instagrapi")
+
+
+def _build_profile_dict(user: Any) -> dict[str, Any]:
+    """Convert an instagrapi User object to a profile dictionary."""
+    logger.debug(
+        "Building profile dict | %s",
+        format_kv(
+            username=getattr(user, "username", "MISSING"),
+            pk=getattr(user, "pk", "MISSING"),
+            has_biography=bool(getattr(user, "biography", "")),
+            follower_count=getattr(user, "follower_count", "MISSING"),
+            following_count=getattr(user, "following_count", "MISSING"),
+            media_count=getattr(user, "media_count", "MISSING"),
+            is_private=getattr(user, "is_private", "MISSING"),
+        ),
+    )
+    return Profile.from_instagrapi_user(user).to_dict()
+
+
+def _log_profile_fetch_attempt(
+    username: str, attempt: int, exc: Exception, wait_seconds: float
+) -> None:
+    """Log a failed profile fetch attempt."""
+    logger.warning(
+        "Profile fetch failed | %s",
+        format_kv(
+            username=username,
+            attempt=f"{attempt}/{COMMENT_PAGE_RETRIES}",
+            error=exc,
+            retry_wait_seconds=wait_seconds,
+        ),
+    )
+
+
+def _log_medias_fetch_attempt(
+    username: str, attempt: int, exc: Exception, wait_seconds: float
+) -> None:
+    """Log a failed medias fetch attempt."""
+    logger.warning(
+        "Medias fetch failed | %s",
+        format_kv(
+            username=username,
+            attempt=f"{attempt}/{COMMENT_PAGE_RETRIES}",
+            error=exc,
+            retry_wait_seconds=wait_seconds,
+        ),
+    )
 
 
 if TYPE_CHECKING:

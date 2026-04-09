@@ -15,9 +15,9 @@ from ig_scraper.analysis import (
     write_text,
 )
 from ig_scraper.analysis_render import build_analysis_markdown
-from ig_scraper.instagrapi_fallback import fetch_profile_posts_and_comments
 from ig_scraper.logging_utils import format_kv, get_logger
 from ig_scraper.paths import ACCOUNT_DIR, README_FILE
+from ig_scraper.scraper import fetch_profile_posts_and_comments
 
 
 logger = get_logger("runner")
