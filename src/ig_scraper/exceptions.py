@@ -15,7 +15,7 @@ class MediaDownloadError(IgScraperError):
     """Raised when media download fails."""
 
 
-class RetryExhaustedError(Exception):
+class RetryExhaustedError(IgScraperError):
     """Raised internally when all retry attempts are spent and caller should handle exhaustion."""
 
 
@@ -39,18 +39,13 @@ def classify_exception(exc: Exception) -> bool:
     - AuthError: Authentication failure
     - ValueError: Invalid input (won't change on retry)
     """
-    retryable_types = (RuntimeError, ConnectionError, TimeoutError)
-    fatal_types = (
-        "LoginRequired",
-        "ChallengeRequired",
-        "AuthError",
-        "IgScraperError",
-    )
-
-    # Check if exception type matches retryable types
-    if isinstance(exc, retryable_types):
+    # Retryable exceptions (transient failures)
+    if isinstance(exc, (RuntimeError, ConnectionError, TimeoutError)):
         return True
 
-    # Check exception class name for specific fatal exceptions
-    exc_type_name = type(exc).__name__
-    return exc_type_name not in fatal_types
+    # Fatal: IgScraperError base class and all subclasses (includes AuthError)
+    if isinstance(exc, IgScraperError):
+        return False
+
+    # Fatal: instagrapi authentication errors (not importable, check by name)
+    return type(exc).__name__ not in ("LoginRequired", "ChallengeRequired")
