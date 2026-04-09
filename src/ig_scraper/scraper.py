@@ -68,11 +68,8 @@ def _log_medias_fetch_attempt(
     )
 
 
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
-logger = get_logger("instagrapi")
 
 
 def fetch_profile_posts_and_comments(
