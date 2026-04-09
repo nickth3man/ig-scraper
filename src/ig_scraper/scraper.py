@@ -7,10 +7,7 @@ from itertools import islice
 from typing import TYPE_CHECKING, Any
 
 from instaloader.exceptions import (
-    PrivateProfileNotFollowedException,
-    ProfileNotExistsException,
     QueryReturnedBadRequestException,
-    QueryReturnedForbiddenException,
     TooManyRequestsException,
 )
 
@@ -82,25 +79,18 @@ def _log_medias_fetch_attempt(
 
 
 @retry_on(
-    RuntimeError,
     ConnectionError,
     TooManyRequestsException,
     QueryReturnedBadRequestException,
-    QueryReturnedForbiddenException,
     max_attempts=COMMENT_PAGE_RETRIES,
     wait_base_seconds=REQUEST_PAUSE_SECONDS,
 )
 def _fetch_profile(username: str) -> Any:
     """Fetch profile by username with retry."""
     client = get_instaloader_client()
-    try:
-        from instaloader import Profile
+    from instaloader import Profile
 
-        return Profile.from_username(client.context, username)
-    except ProfileNotExistsException as exc:
-        raise RuntimeError(f"Profile '{username}' does not exist") from exc
-    except PrivateProfileNotFollowedException as exc:
-        raise RuntimeError(f"Profile '{username}' is private") from exc
+    return Profile.from_username(client.context, username)
 
 
 def fetch_profile_posts_and_comments(
@@ -118,9 +108,7 @@ def fetch_profile_posts_and_comments(
     logger.info("Fetching profile info | %s", format_kv(username=username))
     t0_profile = time.perf_counter()
 
-    from instaloader import Profile
-
-    profile_obj = Profile.from_username(client.context, username)
+    profile_obj = _fetch_profile(username)
     elapsed_profile = round(time.perf_counter() - t0_profile, 3)
     logger.info("Profile.from_username returned | %s", format_kv(elapsed_seconds=elapsed_profile))
     logger.info(

@@ -119,7 +119,7 @@ def write_post_artifacts(handle: str, posts: list[dict], comments: list[dict]) -
 def process_handle(handle: str, max_posts: int) -> str:
     """Scrape a single handle end-to-end and return the access method used."""
     username = clean_handle(handle)
-    method = "instagrapi"
+    method = "instaloader"
     base = handle_dir(ACCOUNT_DIR, handle)
     handle_started_at = time.perf_counter()
     logger.info(

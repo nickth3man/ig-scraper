@@ -7,7 +7,7 @@ import os
 from ig_scraper.logging_utils import format_kv, get_logger
 
 
-logger = get_logger("instagrapi")
+logger = get_logger("instaloader")
 
 
 def _env_int(name: str, default: int) -> int:

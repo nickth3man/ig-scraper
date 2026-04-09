@@ -63,7 +63,7 @@ def get_instaloader_client() -> Instaloader:
     loader = Instaloader(
         sleep=True,
         max_connection_attempts=3,
-        quiet=False,
+        quiet=True,
     )
     logger.debug("Instaloader configured with built-in rate limiting")
 

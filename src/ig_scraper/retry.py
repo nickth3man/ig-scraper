@@ -22,7 +22,7 @@ from ig_scraper.logging_utils import format_kv, get_logger
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-logger = get_logger("instagrapi")
+logger = get_logger("instaloader")
 
 T = TypeVar("T")
 
@@ -135,6 +135,15 @@ def retry_on(
                     return result
                 except exception_types as exc:
                     last_exc = exc
+                    # Use classify_exception to determine if we should retry
+                    # Fatal exceptions (classified as False) propagate immediately
+                    if not classify_exception(exc):
+                        logger.debug(
+                            "Fatal exception in %s (not retrying) | %s",
+                            fn_name,
+                            format_kv(exc_type=type(exc).__name__, exc_msg=str(exc)[:200]),
+                        )
+                        raise
                     wait_seconds = round(base_wait * (2**attempt), 2)
                     logger.warning(
                         "Function %s failed (attempt %d/%d) | error=%s | retry_wait_seconds=%s",

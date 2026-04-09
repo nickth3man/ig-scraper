@@ -6,7 +6,6 @@ from __future__ import annotations
 INSTALOADER_RETRYABLE = {
     "ConnectionException",
     "TooManyRequestsException",
-    "QueryReturnedNotFoundException",
     "AmbiguousRedirectException",
 }
 
@@ -16,6 +15,8 @@ INSTALOADER_FATAL = {
     "TwoFactorAuthRequiredException",
     "PrivateProfileNotFollowedException",
     "ProfileNotExistsException",
+    "QueryReturnedNotFoundException",
+    "QueryReturnedForbiddenException",
 }
 
 

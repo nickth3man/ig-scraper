@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from instaloader.exceptions import (
+    ConnectionException,
+    QueryReturnedBadRequestException,
+    QueryReturnedForbiddenException,
+    QueryReturnedNotFoundException,
+    TooManyRequestsException,
+)
+
 from ig_scraper.config import _sleep
 from ig_scraper.logging_utils import format_kv, get_logger
 from ig_scraper.models import Comment
@@ -54,9 +62,25 @@ def _fetch_all_comments(client: Any, post: Any, media_url: str) -> list[dict[str
 
             _sleep("comment pagination backoff")
 
-    except Exception as exc:
+    except (
+        ConnectionException,
+        QueryReturnedNotFoundException,
+        QueryReturnedBadRequestException,
+        QueryReturnedForbiddenException,
+        TooManyRequestsException,
+    ) as exc:
         logger.warning(
-            "Error during comment fetching; preserving partial | %s",
+            "Retryable error during comment fetching; preserving partial | %s",
+            format_kv(
+                media_url=media_url, page=page, partial_count=len(all_comments), error=str(exc)
+            ),
+        )
+        return all_comments
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as exc:
+        logger.error(
+            "Unexpected error during comment fetching; preserving partial | %s",
             format_kv(
                 media_url=media_url, page=page, partial_count=len(all_comments), error=str(exc)
             ),
