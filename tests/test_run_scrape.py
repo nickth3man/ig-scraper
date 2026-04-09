@@ -241,6 +241,7 @@ class TestWritePostArtifacts:
         assert caption_file.exists(), "caption.txt should be written"
         assert caption_file.read_text() == "My great caption"
 
+
 class TestRootPathBehavior:
     """Tests for repo-root path usage in run_scrape.py."""
 

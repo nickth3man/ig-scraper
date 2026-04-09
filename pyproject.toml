@@ -50,7 +50,11 @@ ignore = [
 "tests/**/*.py" = [
     "S101",    # assert allowed in tests
     "ARG",     # unused arguments common in fixtures
+    "D101",    # missing docstrings common in test classes
+    "D102",    # missing docstrings common in test methods
+    "F401",    # unused imports common in test files
 ]
+
 "scripts/**/*.py" = [
     "T201",    # print is the intended output mechanism for scripts
     "PTH123",  # open() is fine in scripts
@@ -136,6 +140,7 @@ dev-dependencies = [
     "responses>=0.25",
     "mypy>=1.15",
     "ruff>=0.15.9",
+    "ty>=0.0.29",
     "pip-audit>=2.8.0",
     "hypothesis>=6.100",
     "polyfactory>=2.0",

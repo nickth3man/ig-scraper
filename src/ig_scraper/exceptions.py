@@ -20,7 +20,7 @@ class RetryExhaustedError(IgScraperError):
 
 
 # Exception Classification
-def classify_exception(exc: Exception) -> bool:
+def classify_exception(exc: BaseException) -> bool:
     """Classify if an exception is retryable.
 
     Args:

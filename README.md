@@ -104,16 +104,19 @@ uv run pytest -m "not integration"
 ### Code Quality
 
 ```bash
-# Run linter
-uv run ruff check .
+# Run ty (Astral type checker — fast, strict)
+uv run ty check src/
 
-# Run formatter
-uv run ruff format .
-
-# Run type checker
+# Run mypy (traditional type checker)
 uv run mypy src/
 
-# Run all checks
+# Run ruff linter
+uv run ruff check .
+
+# Run ruff formatter
+uv run ruff format .
+
+# Run all checks (ty, mypy, ruff, pytest, file length)
 uv run python scripts/check_all.py
 ```
 
@@ -209,12 +212,14 @@ Three-tier testing approach:
 - **requests**: HTTP library (instagrapi dependency)
 
 ### Development
-- **pytest**: Testing framework
-- **pytest-cov**: Coverage reporting
-- **pytest-mock**: Enhanced mocking
-- **responses**: HTTP mocking for tests
-- **mypy**: Static type checking
-- **ruff**: Linting and formatting
+KV|- **pytest**: Testing framework
+QN|- **pytest-cov**: Coverage reporting
+VY|- **pytest-mock**: Enhanced mocking
+KN|- **responses**: HTTP mocking for tests
+BJ|- **mypy**: Static type checking
+XM|- **ruff**: Linting and formatting
+HT|
+KR|## License
 
 ## License
 
@@ -222,13 +227,14 @@ Three-tier testing approach:
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run all checks (`uv run python scripts/check_all.py`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+TZ|
+KX|1. Fork the repository
+JV|2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+SS|3. Make your changes
+SZ|4. Run all checks (`uv run python scripts/check_all.py`)
+NP|5. Commit your changes (`git commit -m 'Add amazing feature'`)
+XJ|6. Push to the branch (`git push origin feature/amazing-feature`)
+KT|7. Open a Pull Request
 
 ## Troubleshooting
 
