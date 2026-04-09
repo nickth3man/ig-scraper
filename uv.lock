@@ -343,6 +343,23 @@ dev = [
     { name = "ty" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "hypothesis" },
+    { name = "inline-snapshot" },
+    { name = "mypy" },
+    { name = "pip-audit" },
+    { name = "polyfactory" },
+    { name = "pytest" },
+    { name = "pytest-bdd" },
+    { name = "pytest-cov" },
+    { name = "pytest-mock" },
+    { name = "pytest-regressions" },
+    { name = "responses" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100" },
@@ -363,6 +380,23 @@ requires-dist = [
     { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.29" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "hypothesis", specifier = ">=6.100" },
+    { name = "inline-snapshot", specifier = ">=0.20" },
+    { name = "mypy", specifier = ">=1.15" },
+    { name = "pip-audit", specifier = ">=2.8.0" },
+    { name = "polyfactory", specifier = ">=2.0" },
+    { name = "pytest", specifier = ">=9.0.0" },
+    { name = "pytest-bdd", specifier = ">=8.0" },
+    { name = "pytest-cov", specifier = ">=6.0" },
+    { name = "pytest-mock", specifier = ">=3.14" },
+    { name = "pytest-regressions", specifier = ">=2.0" },
+    { name = "responses", specifier = ">=0.25" },
+    { name = "ruff", specifier = ">=0.15.9" },
+    { name = "ty", specifier = ">=0.0.29" },
+]
 
 [[package]]
 name = "imageio"
