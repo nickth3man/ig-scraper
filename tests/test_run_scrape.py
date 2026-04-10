@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from argparse import Namespace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from ig_scraper.analysis import handle_dir, post_dir
 from ig_scraper.cli import HANDLES_FILE, load_handles, main, selected_handles
+from ig_scraper.export import build_manifest, write_manifest, write_profile
 from ig_scraper.paths import ACCOUNT_DIR, ROOT
-from ig_scraper.run_scrape import (
-    cleanup_removed_handle_dirs,
-    initialize_readme,
-    process_handle,
-    update_readme_status,
-    write_post_artifacts,
-)
+from ig_scraper.run_scrape import process_handle, write_post_artifacts
 
 
 class TestPathConstants:
@@ -258,22 +254,16 @@ class TestRootPathBehavior:
 class TestCliPipelineContract:
     """Contract tests for the main CLI orchestration path."""
 
-    @patch("ig_scraper.cli.update_readme_status")
     @patch("ig_scraper.cli.process_handle", return_value="instaloader")
-    @patch("ig_scraper.cli.cleanup_removed_handle_dirs")
-    @patch("ig_scraper.cli.initialize_readme")
     @patch("ig_scraper.cli.selected_handles", return_value=["@user1", "@user2"])
     @patch("ig_scraper.cli.parse_args")
-    def test_main_processes_selected_handles_and_updates_status(
+    def test_main_processes_selected_handles_and_tracks_counts(
         self,
         mock_parse_args,
         mock_selected_handles,
-        mock_initialize_readme,
-        mock_cleanup_removed_handle_dirs,
         mock_process_handle,
-        mock_update_readme_status,
     ):
-        """Test main() orchestrates the happy path across all selected handles."""
+        """Test main() orchestrates handles and increments success/failure counts."""
         mock_parse_args.return_value = type(
             "Args",
             (),
@@ -283,141 +273,81 @@ class TestCliPipelineContract:
         main()
 
         mock_selected_handles.assert_called_once()
-        mock_initialize_readme.assert_called_once_with(["@user1", "@user2"])
-        mock_cleanup_removed_handle_dirs.assert_called_once_with(["@user1", "@user2"])
         assert mock_process_handle.call_count == 2
         mock_process_handle.assert_any_call("@user1", max_posts=25)
         mock_process_handle.assert_any_call("@user2", max_posts=25)
-        assert mock_update_readme_status.call_count == 2
-        mock_update_readme_status.assert_any_call(
-            "@user1",
-            "analyzed",
-            "instaloader",
-            "25 posts target; all comments",
-        )
-        mock_update_readme_status.assert_any_call(
-            "@user2",
-            "analyzed",
-            "instaloader",
-            "25 posts target; all comments",
-        )
-
-
-class TestInitializeReadme:
-    """Tests for initialize_readme function."""
-
-    @patch("ig_scraper.run_scrape.ACCOUNT_DIR")
-    def test_new_file_creation(self, mock_account_dir, tmp_path):
-        """Test initialize_readme creates markdown file with header and handle rows."""
-        data_dir = tmp_path / "data"
-        data_dir.mkdir()
-        readme_path = data_dir / "README.md"
-        mock_account_dir = data_dir / "accounts"
-
-        with (
-            patch("ig_scraper.run_scrape.ACCOUNT_DIR", mock_account_dir),
-            patch("ig_scraper.run_scrape.README_FILE", readme_path),
-        ):
-            initialize_readme(["@handle1", "@handle2"])
-
-        text = readme_path.read_text(encoding="utf-8")
-        assert "# Account Corpus" in text
-        assert "## Status" in text
-        assert "| Handle | Analysis | Access | Notes |" in text
-        assert "| @handle1 | pending | queued | awaiting scrape |" in text
-        assert "| @handle2 | pending | queued | awaiting scrape |" in text
-
-    @patch("ig_scraper.run_scrape.ACCOUNT_DIR")
-    def test_existing_file_new_handles_appended(self, mock_account_dir, tmp_path):
-        """Test adding new handles to existing README appends rows without duplicating."""
-        data_dir = tmp_path / "data"
-        data_dir.mkdir()
-        readme_path = data_dir / "README.md"
-        readme_path.write_text(
-            "# Account Corpus\n\n## Status\n\n| Handle | Analysis | Access | Notes |\n|---|---|---|---|\n| @handle1 | pending | queued | awaiting scrape |\n",
-            encoding="utf-8",
-        )
-        mock_account_dir = data_dir / "accounts"
-
-        with (
-            patch("ig_scraper.run_scrape.ACCOUNT_DIR", mock_account_dir),
-            patch("ig_scraper.run_scrape.README_FILE", readme_path),
-        ):
-            initialize_readme(["@handle2"])
-
-        text = readme_path.read_text(encoding="utf-8")
-        assert text.count("@handle1") == 1
-        assert text.count("@handle2") == 1
-
-    @patch("ig_scraper.run_scrape.ACCOUNT_DIR")
-    def test_existing_file_duplicate_handles_skipped(self, mock_account_dir, tmp_path):
-        """Test re-adding an existing handle does not duplicate the row."""
-        data_dir = tmp_path / "data"
-        data_dir.mkdir()
-        readme_path = data_dir / "README.md"
-        readme_path.write_text(
-            "# Account Corpus\n\n## Status\n\n| Handle | Analysis | Access | Notes |\n|---|---|---|---|\n| @handle1 | pending | queued | awaiting scrape |\n",
-            encoding="utf-8",
-        )
-        mock_account_dir = data_dir / "accounts"
-
-        with (
-            patch("ig_scraper.run_scrape.ACCOUNT_DIR", mock_account_dir),
-            patch("ig_scraper.run_scrape.README_FILE", readme_path),
-        ):
-            initialize_readme(["@handle1"])
-
-        text = readme_path.read_text(encoding="utf-8")
-        assert text.count("@handle1") == 1
-
-    @patch("ig_scraper.run_scrape.ACCOUNT_DIR")
-    def test_empty_handles_list_creates_headers_only(self, mock_account_dir, tmp_path):
-        """Test with no handles, README created with headers but no handle rows."""
-        data_dir = tmp_path / "data"
-        data_dir.mkdir()
-        readme_path = data_dir / "README.md"
-        mock_account_dir = data_dir / "accounts"
-
-        with (
-            patch("ig_scraper.run_scrape.ACCOUNT_DIR", mock_account_dir),
-            patch("ig_scraper.run_scrape.README_FILE", readme_path),
-        ):
-            initialize_readme([])
-
-        text = readme_path.read_text(encoding="utf-8")
-        assert "# Account Corpus" in text
-        assert "## Status" in text
-        assert "| Handle | Analysis | Access | Notes |" in text
-
-
-class TestCleanupRemovedHandleDirs:
-    """Tests for cleanup_removed_handle_dirs function."""
-
-    def test_just_logs_no_exception(self):
-        """Test cleanup_removed_handle_dirs runs without raising."""
-        # Should not raise any exception
-        cleanup_removed_handle_dirs(["@user1", "@user2"])
 
 
 class TestProcessHandle:
     """Tests for process_handle function."""
 
-    @patch("ig_scraper.run_scrape.build_analysis_markdown", return_value="# Analysis")
-    @patch("ig_scraper.run_scrape.write_json")
     @patch("ig_scraper.run_scrape.write_post_artifacts")
-    @patch("ig_scraper.run_scrape.ensure_swipes_dir")
     @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
-    def test_happy_path_with_posts(
-        self,
-        mock_fetch,
-        mock_ensure,
-        mock_write_artifacts,
-        mock_write_json,
-        mock_analysis,
-        tmp_path,
-    ):
-        """Test process_handle happy path with 3 posts and 5 comments."""
+    def test_manifest_written_after_process(self, mock_fetch, mock_write_artifacts, tmp_path):
+        """Test manifest.json is written with version=1 after process_handle."""
         profile = {"username": "testuser", "followers_count": 100}
+        posts = [
+            {
+                "short_code": "POST001",
+                "url": "https://instagram.com/p/POST001/",
+                "caption": "Caption 1",
+                "id": "1",
+                "like_count": 10,
+                "comment_count": 2,
+                "media_files": [],
+            }
+        ]
+        comments = [{"post_url": "https://instagram.com/p/POST001/", "text": "Comment 1"}]
+        mock_fetch.return_value = (profile, posts, comments)
+
+        with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+            process_handle("@testuser", max_posts=50)
+
+        manifest_path = tmp_path / "@testuser" / "manifest.json"
+        assert manifest_path.exists(), "manifest.json should be written"
+        import json
+
+        manifest = json.loads(manifest_path.read_text())
+        assert manifest["version"] == 1
+        assert manifest["handle"] == "@testuser"
+        assert len(manifest["collections"][0]["items"]) == 1
+
+    @patch("ig_scraper.run_scrape.write_post_artifacts")
+    @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
+    def test_profile_json_written(self, mock_fetch, mock_write_artifacts, tmp_path):
+        """Test profile.json is written with correct data after process_handle."""
+        profile = {"username": "testuser", "followers_count": 100, "_internal": "dropped"}
+        posts = [
+            {
+                "short_code": "POST001",
+                "url": "https://instagram.com/p/POST001/",
+                "caption": "Caption",
+                "id": "1",
+                "like_count": 5,
+                "comment_count": 0,
+                "media_files": [],
+            }
+        ]
+        comments = []
+        mock_fetch.return_value = (profile, posts, comments)
+
+        with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+            process_handle("@testuser", max_posts=50)
+
+        profile_path = tmp_path / "@testuser" / "profile.json"
+        assert profile_path.exists(), "profile.json should be written"
+        import json
+
+        prof = json.loads(profile_path.read_text())
+        assert prof["username"] == "testuser"
+        assert prof["followers_count"] == 100
+        assert "_internal" not in prof
+
+    @patch("ig_scraper.run_scrape.write_post_artifacts")
+    @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
+    def test_no_swipes_dir_created(self, mock_fetch, mock_write_artifacts, tmp_path):
+        """Test swipes/ directory is NOT created after process_handle."""
+        profile = {"username": "testuser"}
         posts = [
             {
                 "short_code": f"POST{i:03d}",
@@ -430,139 +360,518 @@ class TestProcessHandle:
             }
             for i in range(1, 4)
         ]
-        comments = [
-            {"post_url": "https://instagram.com/p/POST001/", "text": f"Comment {i}"}
-            for i in range(5)
-        ]
+        comments = []
         mock_fetch.return_value = (profile, posts, comments)
-        mock_ensure.side_effect = lambda base, handle: (base / handle / "swipes").mkdir(
-            parents=True, exist_ok=True
-        )
 
         with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
-            result = process_handle("@testuser", max_posts=50)
+            process_handle("@testuser", max_posts=50)
 
-        assert result == "instaloader"
-        mock_fetch.assert_called_once_with(
-            "testuser", posts_per_profile=50, account_dir=tmp_path / "@testuser"
-        )
-        mock_write_artifacts.assert_called_once_with("@testuser", posts, comments)
-        assert mock_write_json.call_count == 2
-        analysis_file = tmp_path / "@testuser" / "analysis.md"
-        assert analysis_file.exists()
-        swipe_dir = tmp_path / "@testuser" / "swipes"
-        assert (swipe_dir / "post-01.md").exists()
-        assert (swipe_dir / "post-02.md").exists()
-        assert (swipe_dir / "post-03.md").exists()
-        assert not (swipe_dir / "post-04.md").exists()
+        swipes_dir = tmp_path / "@testuser" / "swipes"
+        assert not swipes_dir.exists(), "swipes/ directory should not exist"
 
-    @patch("ig_scraper.run_scrape.build_analysis_markdown", return_value="# Analysis")
-    @patch("ig_scraper.run_scrape.write_json")
     @patch("ig_scraper.run_scrape.write_post_artifacts")
-    @patch("ig_scraper.run_scrape.ensure_swipes_dir")
     @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
-    def test_with_fewer_than_five_posts(
-        self,
-        mock_fetch,
-        mock_ensure,
-        mock_write_artifacts,
-        mock_write_json,
-        mock_analysis,
-        tmp_path,
-    ):
-        """Test process_handle with only 2 posts creates exactly 2 swipe files."""
+    def test_no_analysis_md_created(self, mock_fetch, mock_write_artifacts, tmp_path):
+        """Test analysis.md is NOT created after process_handle."""
         profile = {"username": "testuser"}
         posts = [
             {
-                "short_code": f"POST{i:03d}",
-                "url": f"https://instagram.com/p/POST{i:03d}/",
-                "caption": f"Caption {i}",
-                "id": str(i),
+                "short_code": "POST001",
+                "url": "https://instagram.com/p/POST001/",
+                "caption": "Caption",
+                "id": "1",
                 "like_count": 10,
-                "comment_count": 1,
+                "comment_count": 2,
                 "media_files": [],
             }
-            for i in range(1, 3)
         ]
         comments = []
         mock_fetch.return_value = (profile, posts, comments)
-        mock_ensure.side_effect = lambda base, handle: (base / handle / "swipes").mkdir(
-            parents=True, exist_ok=True
-        )
 
         with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
-            result = process_handle("@testuser", max_posts=50)
+            process_handle("@testuser", max_posts=50)
 
-        assert result == "instaloader"
-        swipe_dir = tmp_path / "@testuser" / "swipes"
-        assert (swipe_dir / "post-01.md").exists()
-        assert (swipe_dir / "post-02.md").exists()
-        assert not (swipe_dir / "post-03.md").exists()
+        analysis_path = tmp_path / "@testuser" / "analysis.md"
+        assert not analysis_path.exists(), "analysis.md should not exist"
 
-    @patch("ig_scraper.run_scrape.build_analysis_markdown", return_value="# Analysis")
-    @patch("ig_scraper.run_scrape.write_json")
     @patch("ig_scraper.run_scrape.write_post_artifacts")
-    @patch("ig_scraper.run_scrape.ensure_swipes_dir")
     @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
-    def test_zero_posts_no_swipe_files(
-        self,
-        mock_fetch,
-        mock_ensure,
-        mock_write_artifacts,
-        mock_write_json,
-        mock_analysis,
-        tmp_path,
-    ):
-        """Test process_handle with empty posts list creates no swipe files."""
+    def test_no_raw_posts_json(self, mock_fetch, mock_write_artifacts, tmp_path):
+        """Test raw-posts.json is NOT created after process_handle."""
         profile = {"username": "testuser"}
-        posts = []
+        posts = [
+            {
+                "short_code": "POST001",
+                "url": "https://instagram.com/p/POST001/",
+                "caption": "Caption",
+                "id": "1",
+                "like_count": 10,
+                "comment_count": 2,
+                "media_files": [],
+            }
+        ]
         comments = []
         mock_fetch.return_value = (profile, posts, comments)
-        mock_ensure.side_effect = lambda base, handle: (base / handle / "swipes").mkdir(
-            parents=True, exist_ok=True
-        )
 
         with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
-            result = process_handle("@testuser", max_posts=50)
+            process_handle("@testuser", max_posts=50)
 
-        assert result == "instaloader"
-        swipe_dir = tmp_path / "@testuser" / "swipes"
-        assert not any(swipe_dir.iterdir())
+        raw_posts_path = tmp_path / "@testuser" / "raw-posts.json"
+        assert not raw_posts_path.exists(), "raw-posts.json should not exist"
+
+    @patch("ig_scraper.run_scrape.write_post_artifacts")
+    @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
+    def test_no_raw_comments_json(self, mock_fetch, mock_write_artifacts, tmp_path):
+        """Test raw-comments.json is NOT created after process_handle."""
+        profile = {"username": "testuser"}
+        posts = [
+            {
+                "short_code": "POST001",
+                "url": "https://instagram.com/p/POST001/",
+                "caption": "Caption",
+                "id": "1",
+                "like_count": 10,
+                "comment_count": 2,
+                "media_files": [],
+            }
+        ]
+        comments = [{"post_url": "https://instagram.com/p/POST001/", "text": "Comment"}]
+        mock_fetch.return_value = (profile, posts, comments)
+
+        with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+            process_handle("@testuser", max_posts=50)
+
+        raw_comments_path = tmp_path / "@testuser" / "raw-comments.json"
+        assert not raw_comments_path.exists(), "raw-comments.json should not exist"
 
 
-class TestUpdateReadmeStatus:
-    """Tests for update_readme_status function."""
+# ---------------------------------------------------------------------------
+# Phase 2 manifest aggregation — runner-level contract tests
+# ---------------------------------------------------------------------------
 
-    def test_existing_row_updated(self, tmp_path):
-        """Test update_readme_status replaces an existing handle row."""
-        data_dir = tmp_path / "data"
-        data_dir.mkdir()
-        readme_path = data_dir / "README.md"
-        readme_path.write_text(
-            "# Account Corpus\n\n## Status\n\n| Handle | Analysis | Access | Notes |\n|---|---|---|---|\n| @user1 | pending | queued | awaiting scrape |\n| @user2 | pending | queued | awaiting scrape |\n",
-            encoding="utf-8",
+
+class TestProcessHandleCollectionsContract:
+    """Runner-level manifest aggregation tests for Phase 2 collection results.
+
+    Validates the Oracle-approved chunk summary contract:
+    - (a) List-based collections (stories/tagged/highlights) contribute items
+      with non-empty items list and correct domain metadata.
+    - (b) Chunk-summary collections (saved/followers/followees) contribute
+      entries with items=[] and a chunks key present.
+    - (c) Skipped collections append top-level skipped_reasons.
+    """
+
+    @patch("ig_scraper.run_scrape.write_post_artifacts")
+    @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
+    @patch("ig_scraper.run_scrape.collect_stories")
+    @patch("ig_scraper.run_scrape.collect_tagged_posts")
+    @patch("ig_scraper.run_scrape.collect_saved_posts")
+    @patch("ig_scraper.run_scrape.collect_followers")
+    @patch("ig_scraper.run_scrape.collect_followees")
+    @patch("ig_scraper.run_scrape.collect_highlights")
+    @patch("ig_scraper.run_scrape.get_instaloader_client")
+    def test_highlights_list_contributes_items_based_entry(
+        self,
+        mock_get_client,
+        mock_collect_highlights,
+        mock_collect_followees,
+        mock_collect_followers,
+        mock_collect_saved,
+        mock_collect_tagged,
+        mock_collect_stories,
+        mock_fetch,
+        mock_write_artifacts,
+        tmp_path,
+    ):
+        """(a) Highlights with items produces a list-based collection entry."""
+        profile = {"username": "alice"}
+        posts = [
+            {
+                "short_code": "P1",
+                "id": "1",
+                "url": "x",
+                "media_files": [],
+            }
+        ]
+        comments = []
+        mock_fetch.return_value = (profile, posts, comments)
+        mock_get_client.return_value = MagicMock()
+
+        mock_highlight_result = MagicMock()
+        mock_highlight_result.skipped = False
+        mock_highlight_result.items = [{"id": "hl_1", "title": "Travel"}]
+        mock_collect_highlights.return_value = mock_highlight_result
+
+        for fn in (
+            mock_collect_stories,
+            mock_collect_tagged,
+            mock_collect_saved,
+            mock_collect_followers,
+            mock_collect_followees,
+        ):
+            r = MagicMock()
+            r.skipped = True
+            r.skip_reason = "not implemented"
+            fn.return_value = r
+
+        mock_profile_obj = MagicMock()
+        with patch("instaloader.Profile") as mock_profile_cls:
+            mock_profile_cls.from_username.return_value = mock_profile_obj
+            with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+                process_handle("@alice", max_posts=50)
+
+        manifest = json.loads((tmp_path / "@alice" / "manifest.json").read_text())
+        domains = {c["domain"]: c for c in manifest["collections"]}
+
+        assert domains["highlights"]["items"] == [{"id": "hl_1", "title": "Travel"}]
+        assert domains["highlights"]["count"] == 1
+        assert "chunks" not in domains["highlights"]
+
+    @patch("ig_scraper.run_scrape.write_post_artifacts")
+    @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
+    @patch("ig_scraper.run_scrape.collect_saved_posts")
+    @patch("ig_scraper.run_scrape.collect_followers")
+    @patch("ig_scraper.run_scrape.collect_followees")
+    @patch("ig_scraper.run_scrape.collect_stories")
+    @patch("ig_scraper.run_scrape.collect_tagged_posts")
+    @patch("ig_scraper.run_scrape.collect_highlights")
+    @patch("ig_scraper.run_scrape.get_instaloader_client")
+    def test_saved_followers_followees_emit_chunk_summary_with_items_empty_and_chunks(
+        self,
+        mock_get_client,
+        mock_collect_highlights,
+        mock_collect_tagged,
+        mock_collect_stories,
+        mock_collect_followees,
+        mock_collect_followers,
+        mock_collect_saved,
+        mock_fetch,
+        mock_write_artifacts,
+        tmp_path,
+    ):
+        """(b) saved/followers/followees return chunk-summary dicts with items=[] and chunks."""
+        profile = {"username": "alice"}
+        posts = [{"short_code": "P1", "id": "1", "url": "x", "media_files": []}]
+        comments = []
+        mock_fetch.return_value = (profile, posts, comments)
+        mock_get_client.return_value = MagicMock()
+
+        for fn in (mock_collect_highlights, mock_collect_stories, mock_collect_tagged):
+            r = MagicMock()
+            r.skipped = True
+            r.skip_reason = "not implemented"
+            fn.return_value = r
+
+        saved_summary = {
+            "count": 150,
+            "chunks": [
+                {
+                    "offset": 0,
+                    "total": 150,
+                    "relative_path": "saved/posts__0001.json",
+                    "profile_count": 150,
+                }
+            ],
+        }
+        followers_summary = {
+            "count": 300,
+            "chunks": [
+                {
+                    "offset": 0,
+                    "total": 300,
+                    "relative_path": "relationships/followers__0001.json",
+                    "profile_count": 300,
+                }
+            ],
+        }
+        followees_summary = {
+            "count": 42,
+            "chunks": [],
+        }
+
+        mock_saved_result = MagicMock()
+        mock_saved_result.skipped = False
+        mock_saved_result.to_dict.return_value = saved_summary
+        mock_collect_saved.return_value = mock_saved_result
+
+        mock_followers_result = MagicMock()
+        mock_followers_result.skipped = False
+        mock_followers_result.skip_reason = None
+        mock_followers_result.to_dict.return_value = followers_summary
+        mock_collect_followers.return_value = mock_followers_result
+
+        mock_followees_result = MagicMock()
+        mock_followees_result.skipped = False
+        mock_followees_result.skip_reason = None
+        mock_followees_result.to_dict.return_value = followees_summary
+        mock_collect_followees.return_value = mock_followees_result
+
+        mock_profile_obj = MagicMock()
+        with patch("instaloader.Profile") as mock_profile_cls:
+            mock_profile_cls.from_username.return_value = mock_profile_obj
+            with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+                process_handle("@alice", max_posts=50)
+
+        manifest = json.loads((tmp_path / "@alice" / "manifest.json").read_text())
+        domains = {c["domain"]: c for c in manifest["collections"]}
+
+        assert domains["saved"]["items"] == []
+        assert domains["saved"]["count"] == 150
+        assert "chunks" in domains["saved"]
+        assert domains["saved"]["chunked"] is True
+        assert domains["saved"]["auth_required"] is True
+
+        assert domains["followers"]["items"] == []
+        assert domains["followers"]["count"] == 300
+        assert "chunks" in domains["followers"]
+        assert domains["followers"]["chunked"] is True
+
+        assert domains["followees"]["items"] == []
+        assert domains["followees"]["count"] == 42
+        assert "chunks" in domains["followees"]
+        assert domains["followees"]["chunked"] is True
+
+    @patch("ig_scraper.run_scrape.write_post_artifacts")
+    @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
+    @patch("ig_scraper.run_scrape.collect_stories")
+    @patch("ig_scraper.run_scrape.collect_tagged_posts")
+    @patch("ig_scraper.run_scrape.collect_highlights")
+    @patch("ig_scraper.run_scrape.get_instaloader_client")
+    def test_stories_tagged_contribute_items_based_entries(
+        self,
+        mock_get_client,
+        mock_collect_highlights,
+        mock_collect_tagged,
+        mock_collect_stories,
+        mock_fetch,
+        mock_write_artifacts,
+        tmp_path,
+    ):
+        """(a) Stories and tagged with items produce list-based collection entries."""
+        profile = {"username": "alice"}
+        posts = [{"short_code": "P1", "id": "1", "url": "x", "media_files": []}]
+        comments = []
+        mock_fetch.return_value = (profile, posts, comments)
+        mock_get_client.return_value = MagicMock()
+
+        for fn in (mock_collect_highlights,):
+            r = MagicMock()
+            r.skipped = True
+            r.skip_reason = "not implemented"
+            fn.return_value = r
+
+        mock_story_result = MagicMock()
+        mock_story_result.skipped = False
+        mock_story_result.items = [{"id": "s1"}, {"id": "s2"}]
+        mock_collect_stories.return_value = mock_story_result
+
+        mock_tagged_result = MagicMock()
+        mock_tagged_result.skipped = False
+        mock_tagged_result.items = [{"pk": "t1"}, {"pk": "t2"}, {"pk": "t3"}]
+        mock_collect_tagged.return_value = mock_tagged_result
+
+        mock_profile_obj = MagicMock()
+        with patch("instaloader.Profile") as mock_profile_cls:
+            mock_profile_cls.from_username.return_value = mock_profile_obj
+            with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+                process_handle("@alice", max_posts=50)
+
+        manifest = json.loads((tmp_path / "@alice" / "manifest.json").read_text())
+        domains = {c["domain"]: c for c in manifest["collections"]}
+
+        assert domains["stories"]["items"] == [{"id": "s1"}, {"id": "s2"}]
+        assert domains["stories"]["count"] == 2
+        assert "chunks" not in domains["stories"]
+
+        assert domains["tagged"]["items"] == [{"pk": "t1"}, {"pk": "t2"}, {"pk": "t3"}]
+        assert domains["tagged"]["count"] == 3
+        assert "chunks" not in domains["tagged"]
+
+    @patch("ig_scraper.run_scrape.write_post_artifacts")
+    @patch("ig_scraper.run_scrape.fetch_profile_posts_and_comments")
+    @patch("ig_scraper.run_scrape.collect_stories")
+    @patch("ig_scraper.run_scrape.collect_tagged_posts")
+    @patch("ig_scraper.run_scrape.collect_highlights")
+    @patch("ig_scraper.run_scrape.get_instaloader_client")
+    def test_skipped_stories_tagged_append_skipped_reasons(
+        self,
+        mock_get_client,
+        mock_collect_highlights,
+        mock_collect_tagged,
+        mock_collect_stories,
+        mock_fetch,
+        mock_write_artifacts,
+        tmp_path,
+    ):
+        """(c) Skipped stories and tagged append domain-specific reasons to skipped_reasons."""
+        profile = {"username": "alice"}
+        posts = [{"short_code": "P1", "id": "1", "url": "x", "media_files": []}]
+        comments = []
+        mock_fetch.return_value = (profile, posts, comments)
+        mock_get_client.return_value = MagicMock()
+
+        mock_highlight_result = MagicMock()
+        mock_highlight_result.skipped = True
+        mock_highlight_result.skip_reason = "not implemented"
+        mock_collect_highlights.return_value = mock_highlight_result
+
+        mock_story_result = MagicMock()
+        mock_story_result.skipped = True
+        mock_story_result.skip_reason = "Login required"
+        mock_collect_stories.return_value = mock_story_result
+
+        mock_tagged_result = MagicMock()
+        mock_tagged_result.skipped = True
+        mock_tagged_result.skip_reason = "Private account"
+        mock_collect_tagged.return_value = mock_tagged_result
+
+        mock_profile_obj = MagicMock()
+        with patch("instaloader.Profile") as mock_profile_cls:
+            mock_profile_cls.from_username.return_value = mock_profile_obj
+            with patch("ig_scraper.run_scrape.ACCOUNT_DIR", tmp_path):
+                process_handle("@alice", max_posts=50)
+
+        manifest = json.loads((tmp_path / "@alice" / "manifest.json").read_text())
+        assert "stories: Login required" in manifest.get("skipped_reasons", [])
+        assert "tagged: Private account" in manifest.get("skipped_reasons", [])
+
+    def test_saved_chunk_summary_emits_items_empty_and_chunks(self):
+        """(b) saved as a summary dict emits items=[] and includes chunks."""
+        posts = [
+            {"index": 0, "shortcode": "X", "folder": "001_X", "media_count": 1, "comment_count": 0}
+        ]
+        collections = {
+            "saved": {
+                "count": 1500,
+                "chunks": [
+                    {
+                        "offset": 0,
+                        "total": 500,
+                        "relative_path": "saved/posts__0001.json",
+                        "profile_count": 500,
+                    },
+                    {
+                        "offset": 500,
+                        "total": 500,
+                        "relative_path": "saved/posts__0002.json",
+                        "profile_count": 500,
+                    },
+                    {
+                        "offset": 1000,
+                        "total": 500,
+                        "relative_path": "saved/posts__0003.json",
+                        "profile_count": 500,
+                    },
+                ],
+            },
+        }
+        manifest = build_manifest("alice", posts, collections=collections)
+        entry = next(c for c in manifest["collections"] if c["domain"] == "saved")
+
+        assert entry["items"] == []
+        assert entry["count"] == 1500
+        assert "chunks" in entry
+        assert len(entry["chunks"]) == 3
+        assert entry["chunked"] is True
+        assert entry["auth_required"] is True
+
+    def test_followers_chunk_summary_emits_items_empty_and_chunks(self):
+        """(b) followers as a summary dict emits items=[] and includes chunks."""
+        posts = [
+            {"index": 0, "shortcode": "X", "folder": "001_X", "media_count": 1, "comment_count": 0}
+        ]
+        collections = {
+            "followers": {
+                "count": 300,
+                "chunks": [
+                    {
+                        "offset": 0,
+                        "total": 300,
+                        "relative_path": "relationships/followers__0001.json",
+                        "profile_count": 300,
+                    },
+                ],
+            },
+        }
+        manifest = build_manifest("alice", posts, collections=collections)
+        entry = next(c for c in manifest["collections"] if c["domain"] == "followers")
+
+        assert entry["items"] == []
+        assert entry["count"] == 300
+        assert "chunks" in entry
+        assert len(entry["chunks"]) == 1
+        assert entry["chunked"] is True
+
+    def test_followees_chunk_summary_emits_items_empty_and_no_chunks_key_when_absent(self):
+        """(b) followees summary without chunks key omits chunks field."""
+        posts = [
+            {"index": 0, "shortcode": "X", "folder": "001_X", "media_count": 1, "comment_count": 0}
+        ]
+        collections = {
+            "followees": {"count": 42},
+        }
+        manifest = build_manifest("alice", posts, collections=collections)
+        entry = next(c for c in manifest["collections"] if c["domain"] == "followees")
+
+        assert entry["items"] == []
+        assert entry["count"] == 42
+        assert "chunks" not in entry
+
+    def test_skipped_reasons_accumulate_across_collections(self):
+        """(c) Multiple skipped reasons accumulate in the top-level list."""
+        posts = [
+            {"index": 0, "shortcode": "X", "folder": "001_X", "media_count": 1, "comment_count": 0}
+        ]
+        manifest = build_manifest(
+            "alice",
+            posts,
+            skipped_reasons=["highlights: auth required", "stories: rate-limited"],
         )
+        assert manifest["skipped_reasons"] == [
+            "highlights: auth required",
+            "stories: rate-limited",
+        ]
 
-        with patch("ig_scraper.run_scrape.README_FILE", readme_path):
-            update_readme_status("@user1", "analyzed", "instaloader", "10 posts scraped")
-
-        text = readme_path.read_text(encoding="utf-8")
-        assert "| @user1 | analyzed | instaloader | 10 posts scraped |" in text
-        assert "| @user2 | pending | queued | awaiting scrape |" in text
-
-    def test_handle_not_in_readme_unchanged(self, tmp_path):
-        """Test update_readme_status when handle row not present leaves text unchanged."""
-        data_dir = tmp_path / "data"
-        data_dir.mkdir()
-        readme_path = data_dir / "README.md"
-        original = (
-            "# Account Corpus\n\n## Status\n\n| Handle | Analysis | Access | Notes |\n"
-            "|---|---|---|---|\n| @other | analyzed | instaloader | stuff |\n"
+    def test_posts_always_first_collection(self):
+        """The posts collection is always first, regardless of collection order."""
+        collections = {
+            "highlights": [{"id": "h1"}],
+            "stories": [{"id": "s1"}],
+            "saved": {"count": 10, "chunks": []},
+        }
+        manifest = build_manifest(
+            "alice",
+            [
+                {
+                    "index": 0,
+                    "shortcode": "X",
+                    "folder": "001_X",
+                    "media_count": 1,
+                    "comment_count": 0,
+                }
+            ],
+            collections=collections,
         )
-        readme_path.write_text(original, encoding="utf-8")
+        assert manifest["collections"][0]["domain"] == "posts"
 
-        with patch("ig_scraper.run_scrape.README_FILE", readme_path):
-            update_readme_status("@nonexistent", "analyzed", "instaloader", "notes")
+    def test_list_and_summary_mix_in_same_manifest(self):
+        """(a)+(b) Both list-based and chunk-summary entries coexist in one manifest."""
+        posts = [
+            {"index": 0, "shortcode": "X", "folder": "001_X", "media_count": 1, "comment_count": 0}
+        ]
+        collections = {
+            "stories": [{"id": "s1"}],  # list-based
+            "saved": {"count": 100, "chunks": [{"offset": 0, "total": 100}]},
+            "highlights": [{"id": "h1"}],  # list-based
+            "followers": {"count": 50, "chunks": []},
+        }
+        manifest = build_manifest("alice", posts, collections=collections)
+        domains = {c["domain"]: c for c in manifest["collections"]}
 
-        text = readme_path.read_text(encoding="utf-8")
-        assert text == original
+        assert domains["stories"]["items"] == [{"id": "s1"}]
+        assert domains["highlights"]["items"] == [{"id": "h1"}]
+
+        assert domains["saved"]["items"] == []
+        assert "chunks" in domains["saved"]
+        assert domains["followers"]["items"] == []
+        assert "chunks" in domains["followers"]

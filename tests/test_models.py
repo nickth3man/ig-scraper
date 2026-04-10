@@ -103,6 +103,9 @@ class TestPost:
             media_files=["image1.jpg"],
             post_folder="posts/001_ABC123",
             from_url="https://instagram.com/poster/",
+            title="My Post Title",
+            accessibility_caption="A photo of a sunset",
+            product_type="feed",
         )
         data = post.to_dict()
         assert data["id"] == "post_123"
@@ -111,6 +114,9 @@ class TestPost:
         assert data["comment_count"] == 10
         assert data["like_count"] == 100
         assert len(data["resources"]) == 1
+        assert data["title"] == "My Post Title"
+        assert data["accessibility_caption"] == "A photo of a sunset"
+        assert data["product_type"] == "feed"
 
     def test_post_to_dict_datetime_converted_to_isoformat(self):
         """Test that datetime taken_at is serialized as ISO string."""
@@ -178,12 +184,117 @@ class TestPost:
         data = post.to_dict()
         assert data["taken_at"] == ""
 
+    def test_post_new_fields_default_to_empty_string(self):
+        """Test that title, accessibility_caption, product_type default to empty strings."""
+        post = Post(
+            id="1",
+            pk="1",
+            short_code="X",
+            url="",
+            type="",
+            caption="",
+            comment_count=0,
+            like_count=0,
+            taken_at=None,
+            owner_username="",
+            owner_full_name="",
+            owner_id="",
+            video_url="",
+            thumbnail_url="",
+            is_video=False,
+        )
+        data = post.to_dict()
+        assert data["title"] == ""
+        assert data["accessibility_caption"] == ""
+        assert data["product_type"] == ""
+
+    def test_post_from_instaloader_with_new_fields(self):
+        """Test from_instaloader_post maps title, accessibility_caption, product_type."""
+        mock_post = MagicMock()
+        mock_post.mediaid = "12345"
+        mock_post.shortcode = "NEW123"
+        mock_post.typename = "GraphVideo"
+        mock_post.caption = ""
+        mock_post.date_utc = MagicMock()
+        mock_post.likes = 10
+        mock_post.comments = 5
+        mock_post.url = "https://example.com"
+        mock_post.is_video = True
+        mock_post.resources = []
+        mock_post.caption_hashtags = []
+        mock_post.caption_mentions = []
+        mock_post.tagged_users = []
+        mock_post.sponsor_users = []
+        mock_post.view_count = 100
+        mock_post.video_play_count = 50
+        mock_post.video_view_count = 75
+        mock_post.is_sponsored = False
+        mock_post.title = "Video Title"
+        mock_post.accessibility_caption = "A video clip"
+        mock_post.product_type = "clips"
+        mock_post.video_url = "https://example.com/video.mp4"
+        mock_post.location = None
+
+        post = Post.from_instaloader_post(
+            mock_post,
+            username="testuser",
+            user_full_name="Test User",
+            user_id="999",
+        )
+
+        assert post.title == "Video Title"
+        assert post.accessibility_caption == "A video clip"
+        assert post.product_type == "clips"
+        data = post.to_dict()
+        assert data["title"] == "Video Title"
+        assert data["accessibility_caption"] == "A video clip"
+        assert data["product_type"] == "clips"
+
+    def test_post_from_instaloader_new_fields_missing(self):
+        """Test from_instaloader_post defaults to empty when new fields are missing."""
+        mock_post = MagicMock()
+        mock_post.mediaid = "67890"
+        mock_post.shortcode = "MISS"
+        mock_post.typename = "GraphImage"
+        mock_post.caption = ""
+        mock_post.date_utc = MagicMock()
+        mock_post.likes = 0
+        mock_post.comments = 0
+        mock_post.url = ""
+        mock_post.is_video = False
+        mock_post.resources = []
+        mock_post.caption_hashtags = []
+        mock_post.caption_mentions = []
+        mock_post.tagged_users = []
+        mock_post.sponsor_users = []
+        mock_post.view_count = 0
+        mock_post.video_play_count = 0
+        mock_post.video_view_count = 0
+        mock_post.is_sponsored = False
+        mock_post.video_url = ""
+        mock_post.location = None
+        # Simulate missing new fields via side_effect
+        mock_post.title = None
+        mock_post.accessibility_caption = None
+        mock_post.product_type = None
+
+        post = Post.from_instaloader_post(
+            mock_post,
+            username="testuser",
+            user_full_name="Test User",
+            user_id="999",
+        )
+
+        assert post.title == ""
+        assert post.accessibility_caption == ""
+        assert post.product_type == ""
+
 
 class TestComment:
-    """Tests for Comment model (no 'replies' field in current contract)."""
+    """Tests for Comment model."""
 
-    def test_comment_to_dict_serializes_replies_count_not_replies_list(self):
-        """Test Comment.to_dict includes replies_count but NOT a replies list."""
+    def test_comment_to_dict_includes_replies(self):
+        """Test Comment.to_dict includes replies list."""
         comment = Comment(
             post_url="https://instagram.com/p/ABC123",
             comment_url="https://instagram.com/p/ABC123#comment-999",
@@ -200,8 +311,97 @@ class TestComment:
         assert data["id"] == "999"
         assert data["text"] == "Great post!"
         assert data["replies_count"] == 2
-        # Comment model does NOT have a 'replies' field
-        assert "replies" not in data
+        assert "replies" in data
+        assert data["replies"] == []
+
+    def test_from_instaloader_comment_with_answers(self):
+        """Test from_instaloader_comment extracts replies from comment.answers."""
+        media_url = "https://instagram.com/p/ABC123"
+        mock_answer = MagicMock()
+        mock_answer.id = 12345
+        mock_answer.text = "Reply text"
+        mock_answer.created_at_utc = datetime(2024, 2, 10, 8, 0, 0)
+        mock_owner = MagicMock()
+        mock_owner.username = "replier"
+        mock_answer.owner = mock_owner
+        mock_answer.likes_count = 5
+
+        mock_comment = MagicMock()
+        mock_comment.id = 999
+        mock_comment.text = "Original comment"
+        mock_comment.created_at_utc = datetime(2024, 1, 15, 10, 30, 0)
+        mock_comment.likes_count = 10
+        mock_comment.answers_count = 1
+        mock_comment.answers = [mock_answer]
+        owner = MagicMock()
+        owner.username = "commenter"
+        owner.full_name = "Commenter Name"
+        owner.profile_pic_url = "https://example.com/pic.jpg"
+        mock_comment.owner = owner
+
+        result = Comment.from_instaloader_comment(mock_comment, media_url)
+
+        assert result.id == "999"
+        assert result.text == "Original comment"
+        assert result.replies_count == 1
+        assert len(result.replies) == 1
+        assert result.replies[0]["id"] == "12345"
+        assert result.replies[0]["text"] == "Reply text"
+        assert result.replies[0]["owner_username"] == "replier"
+        assert result.replies[0]["likes_count"] == 5
+
+        data = result.to_dict()
+        assert data["replies"][0]["id"] == "12345"
+        assert data["replies"][0]["owner_username"] == "replier"
+
+    def test_from_instaloader_comment_without_answers(self):
+        """Test from_instaloader_comment with no answers yields empty replies."""
+        media_url = "https://instagram.com/p/XYZ789"
+        mock_comment = MagicMock()
+        mock_comment.id = 555
+        mock_comment.text = "Solo comment"
+        mock_comment.created_at_utc = datetime(2024, 3, 1, 14, 0, 0)
+        mock_comment.likes_count = 0
+        mock_comment.answers_count = 0
+        mock_comment.answers = None
+        owner = MagicMock()
+        owner.username = "lone_user"
+        owner.full_name = ""
+        owner.profile_pic_url = ""
+        mock_comment.owner = owner
+
+        result = Comment.from_instaloader_comment(mock_comment, media_url)
+
+        assert result.replies == []
+        assert result.replies_count == 0
+        data = result.to_dict()
+        assert data["replies"] == []
+
+    def test_from_instaloader_comment_answer_without_owner(self):
+        """Test reply extraction when answer has no owner."""
+        media_url = "https://instagram.com/p/NOOWNER"
+        mock_answer = MagicMock()
+        mock_answer.id = 777
+        mock_answer.text = "No owner reply"
+        mock_answer.created_at_utc = datetime(2024, 4, 1, 12, 0, 0)
+        mock_answer.owner = None
+        mock_answer.likes_count = 0
+
+        mock_comment = MagicMock()
+        mock_comment.id = 888
+        mock_comment.text = "Parent comment"
+        mock_comment.created_at_utc = datetime(2024, 4, 1, 11, 0, 0)
+        mock_comment.likes_count = 1
+        mock_comment.answers_count = 1
+        mock_comment.answers = [mock_answer]
+        mock_comment.owner = MagicMock(
+            username="parent_user", full_name="Parent", profile_pic_url=""
+        )
+
+        result = Comment.from_instaloader_comment(mock_comment, media_url)
+
+        assert len(result.replies) == 1
+        assert result.replies[0]["owner_username"] == ""
 
 
 class TestSafeAttr:

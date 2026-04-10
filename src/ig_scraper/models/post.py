@@ -67,6 +67,9 @@ class Post:
     video_play_count: int = 0
     video_view_count: int = 0
     is_sponsored: bool = False
+    title: str = ""
+    accessibility_caption: str = ""
+    product_type: str = ""
     _profile: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
@@ -83,6 +86,9 @@ class Post:
                 rawtypename=getattr(post, "typename", "MISSING"),
                 raw_caption_len=len(getattr(post, "caption", "") or ""),
                 raw_date_utc=str(getattr(post, "date_utc", "MISSING")),
+                raw_title=_safe_attr(post, "title", ""),
+                raw_accessibility_caption=_safe_attr(post, "accessibility_caption", ""),
+                raw_product_type=_safe_attr(post, "product_type", ""),
             ),
         )
         url = f"https://www.instagram.com/p/{post.shortcode}/"
@@ -130,6 +136,9 @@ class Post:
             video_play_count=_safe_attr(post, "video_play_count", 0) or 0,
             video_view_count=_safe_attr(post, "video_view_count", 0) or 0,
             is_sponsored=_safe_attr(post, "is_sponsored", False),
+            title=str(_safe_attr(post, "title", "") or ""),
+            accessibility_caption=str(_safe_attr(post, "accessibility_caption", "") or ""),
+            product_type=str(_safe_attr(post, "product_type", "") or ""),
         )
 
     def to_dict(self) -> dict[str, Any]:

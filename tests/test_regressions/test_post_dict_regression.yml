@@ -1,3 +1,4 @@
+accessibility_caption: ''
 caption: 'Regression test caption #test'
 comment_count: 5
 from_url: https://www.instagram.com/reguser/
@@ -16,12 +17,14 @@ owner_id: '123'
 owner_username: reguser
 pk: reg_post_001
 post_folder: posts/001_REG001
+product_type: ''
 resources: []
 short_code: REG001
 sponsor_users: []
 tagged_users: []
 taken_at: '2024-06-15T12:00:00'
 thumbnail_url: https://example.com/thumb.jpg
+title: ''
 type: image
 url: https://www.instagram.com/p/REG001/
 video_play_count: 0

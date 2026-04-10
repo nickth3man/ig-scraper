@@ -130,16 +130,10 @@ class TestMain:
     @patch("ig_scraper.cli.configure_logging")
     @patch("ig_scraper.cli.parse_args")
     @patch("ig_scraper.cli.selected_handles")
-    @patch("ig_scraper.cli.initialize_readme")
-    @patch("ig_scraper.cli.cleanup_removed_handle_dirs")
     @patch("ig_scraper.cli.process_handle")
-    @patch("ig_scraper.cli.update_readme_status")
     def test_main_success(
         self,
-        mock_update_readme,
         mock_process_handle,
-        mock_cleanup,
-        mock_init_readme,
         mock_selected_handles,
         mock_parse_args,
         mock_configure_logging,
@@ -156,26 +150,15 @@ class TestMain:
         main()
 
         mock_configure_logging.assert_called_once()
-        mock_init_readme.assert_called_once_with(["@user1"])
-        mock_cleanup.assert_called_once_with(["@user1"])
         mock_process_handle.assert_called_once_with("@user1", max_posts=50)
-        mock_update_readme.assert_called_with(
-            "@user1", "analyzed", "method1", "50 posts target; all comments"
-        )
 
     @patch("ig_scraper.cli.configure_logging")
     @patch("ig_scraper.cli.parse_args")
     @patch("ig_scraper.cli.selected_handles")
-    @patch("ig_scraper.cli.initialize_readme")
-    @patch("ig_scraper.cli.cleanup_removed_handle_dirs")
     @patch("ig_scraper.cli.process_handle")
-    @patch("ig_scraper.cli.update_readme_status")
     def test_main_multiple_handles(
         self,
-        mock_update_readme,
         mock_process_handle,
-        mock_cleanup,
-        mock_init_readme,
         mock_selected_handles,
         mock_parse_args,
         mock_configure_logging,
@@ -198,18 +181,12 @@ class TestMain:
     @patch("ig_scraper.cli.configure_logging")
     @patch("ig_scraper.cli.parse_args")
     @patch("ig_scraper.cli.selected_handles")
-    @patch("ig_scraper.cli.initialize_readme")
-    @patch("ig_scraper.cli.cleanup_removed_handle_dirs")
     @patch("ig_scraper.cli.process_handle")
-    @patch("ig_scraper.cli.update_readme_status")
     @patch("ig_scraper.cli.logger")
     def test_main_handles_failure(
         self,
         mock_logger,
-        mock_update_readme,
         mock_process_handle,
-        mock_cleanup,
-        mock_init_readme,
         mock_selected_handles,
         mock_parse_args,
         mock_configure_logging,
@@ -227,7 +204,6 @@ class TestMain:
 
         main()
 
-        mock_update_readme.assert_called_with("@user1", "failed", "error", "Test error")
         mock_logger.warning.assert_called()
         mock_logger.exception.assert_not_called()
 
@@ -254,18 +230,12 @@ class TestMain:
     @patch("ig_scraper.cli.configure_logging")
     @patch("ig_scraper.cli.parse_args")
     @patch("ig_scraper.cli.selected_handles")
-    @patch("ig_scraper.cli.initialize_readme")
-    @patch("ig_scraper.cli.cleanup_removed_handle_dirs")
     @patch("ig_scraper.cli.process_handle")
-    @patch("ig_scraper.cli.update_readme_status")
     @patch("time.perf_counter")
     def test_main_logs_summary(
         self,
         mock_perf_counter,
-        mock_update_readme,
         mock_process_handle,
-        mock_cleanup,
-        mock_init_readme,
         mock_selected_handles,
         mock_parse_args,
         mock_configure_logging,
@@ -274,7 +244,7 @@ class TestMain:
         """Test that summary is logged at completion."""
         import logging
 
-        mock_perf_counter.return_value = 5.5  # Just return a fixed value
+        mock_perf_counter.return_value = 5.5
         mock_parse_args.return_value = argparse.Namespace(
             handles="@user1",
             all=False,
@@ -285,5 +255,4 @@ class TestMain:
 
         main()
 
-        # Verify main completes and calls process_handle
         assert mock_process_handle.called

@@ -8,12 +8,7 @@ import time
 from ig_scraper.exceptions import IgScraperError
 from ig_scraper.logging_utils import configure_logging, format_kv, get_logger
 from ig_scraper.paths import HANDLES_FILE
-from ig_scraper.run_scrape import (
-    cleanup_removed_handle_dirs,
-    initialize_readme,
-    process_handle,
-    update_readme_status,
-)
+from ig_scraper.run_scrape import process_handle
 
 
 logger = get_logger("runner")
@@ -58,7 +53,7 @@ def selected_handles(args: argparse.Namespace) -> list[str]:
 
 
 def main() -> None:
-    """CLI entry point: parse arguments, scrape all selected handles, and update README status."""
+    """CLI entry point: parse arguments and scrape all selected handles."""
     configure_logging()
     args = parse_args()
     handles = selected_handles(args)
@@ -73,8 +68,6 @@ def main() -> None:
             max_posts_per_handle=args.max_posts_per_handle,
         ),
     )
-    initialize_readme(handles)
-    cleanup_removed_handle_dirs(handles)
     for handle_index, handle in enumerate(handles, start=1):
         logger.info(
             "Dispatching handle | %s",
@@ -84,12 +77,6 @@ def main() -> None:
             method = process_handle(
                 handle,
                 max_posts=args.max_posts_per_handle,
-            )
-            update_readme_status(
-                handle,
-                "analyzed",
-                method,
-                f"{args.max_posts_per_handle} posts target; all comments",
             )
             success_count += 1
             logger.info(
@@ -103,14 +90,12 @@ def main() -> None:
         except (KeyboardInterrupt, SystemExit):
             raise
         except (IgScraperError, OSError, RuntimeError, ConnectionError, ValueError) as exc:
-            update_readme_status(handle, "failed", "error", str(exc).replace("|", "/")[:80])
             failure_count += 1
             logger.warning(
                 "Handle failed | %s",
                 format_kv(progress=f"{handle_index}/{total_handles}", handle=handle, error=exc),
             )
         except Exception as exc:
-            update_readme_status(handle, "failed", "error", str(exc).replace("|", "/")[:80])
             failure_count += 1
             logger.exception(
                 "Handle failed with unexpected exception | %s",

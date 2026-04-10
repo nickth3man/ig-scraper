@@ -1,87 +1,31 @@
-"""Scraping orchestration: per-handle processing, artifact writing, and README management."""
+"""Scraping orchestration: per-handle processing and artifact writing."""
 
 from __future__ import annotations
 
-import re
 import time
+from typing import Any
 
 from ig_scraper.analysis import (
     clean_handle,
-    ensure_swipes_dir,
     get_post_url,
     handle_dir,
     post_dir,
     write_json,
     write_text,
 )
-from ig_scraper.analysis_render import build_analysis_markdown
+from ig_scraper.client import get_instaloader_client
+from ig_scraper.export import build_manifest, write_manifest, write_profile
+from ig_scraper.highlight_collection import collect_highlights
 from ig_scraper.logging_utils import format_kv, get_logger
-from ig_scraper.paths import ACCOUNT_DIR, README_FILE
+from ig_scraper.paths import ACCOUNT_DIR
+from ig_scraper.relationship_collection import collect_followees, collect_followers
+from ig_scraper.saved_collection import collect_saved_posts
 from ig_scraper.scraper import fetch_profile_posts_and_comments
+from ig_scraper.story_collection import collect_stories
+from ig_scraper.tagged_collection import collect_tagged_posts
 
 
 logger = get_logger("runner")
-
-
-def initialize_readme(handles: list[str]) -> None:
-    """Create or update the data/README.md status table with the given handles."""
-    logger.info(
-        "Initializing account README | %s",
-        format_kv(handle_count=len(handles), readme_path=README_FILE),
-    )
-    ACCOUNT_DIR.mkdir(parents=True, exist_ok=True)
-    if not README_FILE.exists():
-        rows = [
-            "# Account Corpus",
-            "",
-            "This directory holds per-account Instagram research used to improve `instagram-strategy.md`.",
-            "",
-            "## Method",
-            "",
-            "- Source list: `resources/instagram_handles.md`",
-            "- Account folder naming: exact handle, lowercase, including `@`",
-            "- One `analysis.md` per account",
-            "- One `posts/<index>_<shortcode>/` folder per scraped post",
-            "- Each post folder stores `metadata.json`, `comments.json`, `caption.txt`, and `media/` assets",
-            "- Cross-account patterns belong in `SYNTHESIS.md`",
-            "",
-            "## Status",
-            "",
-            "| Handle | Analysis | Access | Notes |",
-            "|---|---|---|---|",
-        ]
-        rows.extend(f"| {handle} | pending | queued | awaiting scrape |" for handle in handles)
-        rows.extend(
-            [
-                "",
-                "## Notes",
-                "",
-                "- Comments are fetched to exhaustion via authenticated pagination whenever Instagram returns cursors.",
-                "- Per-post media downloads are stored under each post folder's `media/` directory.",
-            ]
-        )
-        README_FILE.write_text("\n".join(rows) + "\n", encoding="utf-8")
-        return
-
-    text = README_FILE.read_text(encoding="utf-8")
-    insert_after = "|---|---|---|---|"
-    for handle in handles:
-        if re.search(rf"^\| {re.escape(handle)} \| .*?$", text, flags=re.MULTILINE):
-            continue
-        text = text.replace(
-            insert_after,
-            insert_after + f"\n| {handle} | pending | queued | awaiting scrape |",
-            1,
-        )
-    README_FILE.write_text(text, encoding="utf-8")
-
-
-def cleanup_removed_handle_dirs(handles: list[str]) -> None:
-    """Log a notice that destructive cleanup is intentionally skipped."""
-    logger.info(
-        "Skipping destructive cleanup of non-target handles | %s",
-        format_kv(target_handle_count=len(handles)),
-    )
 
 
 def write_post_artifacts(handle: str, posts: list[dict], comments: list[dict]) -> None:
@@ -137,46 +81,97 @@ def process_handle(handle: str, max_posts: int) -> str:
         format_kv(handle=handle, posts=len(posts), comments=len(comments), method=method),
     )
 
-    for post in posts:
-        post["_profile"] = {**profile, "_method": method}
-
     write_post_artifacts(handle, posts, comments)
-    ensure_swipes_dir(ACCOUNT_DIR, handle)
+    write_profile(base, profile)
 
-    write_json(base / "raw-posts.json", posts)
-    write_json(base / "raw-comments.json", comments)
-    logger.info(
-        "Wrote top-level raw payloads | %s",
-        format_kv(
-            handle=handle,
-            raw_posts_path=base / "raw-posts.json",
-            raw_comments_path=base / "raw-comments.json",
-        ),
-    )
-    (base / "analysis.md").write_text(
-        build_analysis_markdown(handle, posts, comments), encoding="utf-8"
-    )
-    logger.info(
-        "Analysis markdown written | %s",
-        format_kv(handle=handle, path=base / "analysis.md"),
-    )
+    comments_by_post_url: dict[str, list[dict]] = {}
+    for comment in comments:
+        post_url_key = str(comment.get("post_url") or comment.get("postUrl") or "")
+        comments_by_post_url.setdefault(post_url_key, []).append(comment)
 
-    for idx, post in enumerate(posts[:5], start=1):
+    manifest_items: list[dict] = []
+    for index, post in enumerate(posts, start=1):
         post_url = get_post_url(post)
-        swipe = [
-            f"# Swipe {idx}",
-            "",
-            f"- URL: {post_url or 'unknown'}",
-            f"- Engagement proxy: likes={post.get('like_count', 0)}, comments={post.get('comment_count', 0)}",
-        ]
-        (base / "swipes" / f"post-{idx:02d}.md").write_text(
-            "\n".join(swipe) + "\n", encoding="utf-8"
-        )
-        logger.info(
-            "Swipe summary written | %s",
-            format_kv(handle=handle, swipe_index=idx, url=post_url or "unknown"),
+        post_comments = comments_by_post_url.get(post_url, [])
+        shortcode = post.get("short_code") or post.get("id") or str(index)
+        folder_name = f"{index:03d}_{shortcode}"
+        manifest_items.append(
+            {
+                "index": index,
+                "shortcode": shortcode,
+                "folder": folder_name,
+                "media_count": len(post.get("media_files") or []),
+                "comment_count": len(post_comments),
+            }
         )
 
+    collections: dict[str, Any] = {}
+    skipped_reasons: list[str] = []
+
+    try:
+        client = get_instaloader_client()
+        from instaloader import Profile
+
+        profile_obj = Profile.from_username(client.context, username)
+        highlight_result = collect_highlights(client, profile_obj, base)
+        if highlight_result.skipped:
+            skipped_reasons.append(f"highlights: {highlight_result.skip_reason or 'unknown'}")
+        elif highlight_result.items:
+            collections["highlights"] = highlight_result.items
+    except Exception as exc:  # pragma: no cover
+        logger.warning(
+            "Highlights collection failed; continuing | %s",
+            format_kv(handle=handle, error=exc),
+        )
+        skipped_reasons.append(f"highlights: {exc}")
+
+    try:
+        client = get_instaloader_client()
+        from instaloader import Profile
+
+        profile_obj = Profile.from_username(client.context, username)
+
+        story_result = collect_stories(client, profile_obj, base)
+        if story_result.skipped:
+            skipped_reasons.append(f"stories: {story_result.skip_reason or 'unknown'}")
+        elif story_result.items:
+            collections["stories"] = story_result.items
+
+        tagged_result = collect_tagged_posts(profile_obj, base)
+        if tagged_result.skipped:
+            skipped_reasons.append(f"tagged: {tagged_result.skip_reason or 'unknown'}")
+        elif tagged_result.items:
+            collections["tagged"] = tagged_result.items
+
+        saved_result = collect_saved_posts(client, profile_obj, base)
+        if saved_result.skipped:
+            skipped_reasons.append(f"saved: {saved_result.skip_reason or 'unknown'}")
+        else:
+            collections["saved"] = saved_result.to_dict()
+
+        followers_result = collect_followers(profile_obj, base)
+        if followers_result.skipped:
+            skipped_reasons.append(f"followers: {followers_result.skipped_reason or 'unknown'}")
+        else:
+            collections["followers"] = followers_result.to_dict()
+
+        followees_result = collect_followees(profile_obj, base)
+        if followees_result.skipped:
+            skipped_reasons.append(f"followees: {followees_result.skipped_reason or 'unknown'}")
+        else:
+            collections["followees"] = followees_result.to_dict()
+
+    except Exception as exc:  # pragma: no cover
+        logger.warning(
+            "Phase 2 collections failed; continuing | %s",
+            format_kv(handle=handle, error=exc),
+        )
+        skipped_reasons.append(f"collections: {exc}")
+
+    manifest = build_manifest(handle, manifest_items, method=method, collections=collections)
+    if skipped_reasons:
+        manifest["skipped_reasons"] = skipped_reasons
+    write_manifest(base, manifest)
     logger.info(
         "Handle sync complete | %s",
         format_kv(
@@ -188,11 +183,3 @@ def process_handle(handle: str, max_posts: int) -> str:
         ),
     )
     return method
-
-
-def update_readme_status(handle: str, analysis: str, access: str, notes: str = "") -> None:
-    """Update the README status row for *handle* with the latest analysis/access result."""
-    text = README_FILE.read_text(encoding="utf-8")
-    pattern = rf"^\| {re.escape(handle)} \| .*?\| .*?\| .*?\|$"
-    replacement = f"| {handle} | {analysis} | {access} | {notes} |"
-    README_FILE.write_text(re.sub(pattern, replacement, text, flags=re.MULTILINE), encoding="utf-8")

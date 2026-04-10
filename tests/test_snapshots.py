@@ -115,6 +115,9 @@ class TestPostSnapshot:
                 "video_play_count": 0,
                 "video_view_count": 0,
                 "is_sponsored": False,
+                "title": "",
+                "accessibility_caption": "",
+                "product_type": "",
             }
         )
 
@@ -148,6 +151,7 @@ class TestCommentSnapshot:
                 "timestamp": "2024-01-15T10:30:00",
                 "likes_count": 5,
                 "replies_count": 2,
+                "replies": [],
             }
         )
 
