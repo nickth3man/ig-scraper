@@ -6,6 +6,7 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 from ig_scraper.models import Comment, Post, PostResource, Profile
+from ig_scraper.models.post import _safe_attr
 
 
 class TestProfile:
@@ -48,47 +49,10 @@ class TestProfile:
             is_business_account=False,
             profile_pic_url="",
             external_url="",
-            _method="instagrapi",
+            _method="instaloader",
         )
         data = profile.to_dict()
         assert "_method" not in data
-
-    def test_profile_from_instagrapi_user(self):
-        """Test Profile.from_instagrapi_user maps instagrapi fields correctly."""
-        mock_user = MagicMock()
-        mock_user.pk = 99999
-        mock_user.username = "insta_user"
-        mock_user.full_name = "Instagram User"
-        mock_user.biography = "My bio"
-        mock_user.follower_count = 1500
-        mock_user.following_count = 300
-        mock_user.media_count = 75
-        mock_user.is_verified = True
-        mock_user.is_business = True
-        mock_user.profile_pic_url = "https://example.com/profile.jpg"
-        mock_user.external_url = "https://example.com"
-
-        profile = Profile.from_instagrapi_user(mock_user)
-
-        assert profile.id == "99999"
-        assert profile.username == "insta_user"
-        assert profile.full_name == "Instagram User"
-        assert profile.biography == "My bio"
-        assert profile.followers_count == 1500
-        assert profile.follows_count == 300
-        assert profile.posts_count == 75
-        assert profile.verified is True
-        assert profile.is_business_account is True
-
-    def test_profile_from_instagrapi_user_with_defaults(self):
-        """Test Profile.from_instagrapi_user handles missing attributes gracefully."""
-        mock_user = MagicMock(spec=[])
-        # All getattr calls will return None via default
-        profile = Profile.from_instagrapi_user(mock_user)
-
-        assert profile.id == ""
-        assert profile.username == ""
-        assert profile.followers_count == 0
 
 
 class TestPostResource:
@@ -214,61 +178,6 @@ class TestPost:
         data = post.to_dict()
         assert data["taken_at"] == ""
 
-    def test_post_from_instagrapi_media(self):
-        """Test Post.from_instagrapi_media correctly maps media fields."""
-        mock_media = MagicMock()
-        mock_media.pk = 77777
-        mock_media.code = "DEF456"
-        mock_media.product_type = "clips"
-        mock_media.caption_text = "My video caption"
-        mock_media.comment_count = 5
-        mock_media.like_count = 200
-        mock_media.taken_at = datetime(2024, 3, 20, 8, 0, 0)
-        mock_media.media_type = 2  # video
-        mock_media.video_url = "https://example.com/video.mp4"
-        mock_media.thumbnail_url = "https://example.com/thumb.jpg"
-        mock_media.resources = []
-
-        post = Post.from_instagrapi_media(mock_media, "poster_name", "Poster Full Name", "88888")
-
-        assert post.id == "77777"
-        assert post.pk == "77777"
-        assert post.short_code == "DEF456"
-        assert "reel" in post.url  # clips -> reel
-        assert post.type == "clips"
-        assert post.caption == "My video caption"
-        assert post.comment_count == 5
-        assert post.like_count == 200
-        assert post.is_video is True
-        assert post.owner_username == "poster_name"
-
-    def test_post_from_instagrapi_media_carousel(self):
-        """Test Post.from_instagrapi_media handles albums/carousels."""
-        mock_resource = MagicMock()
-        mock_resource.pk = "res_001"
-        mock_resource.media_type = 8
-        mock_resource.thumbnail_url = "https://example.com/res_thumb.jpg"
-        mock_resource.video_url = ""
-
-        mock_media = MagicMock()
-        mock_media.pk = 55555
-        mock_media.code = "CAROUSEL1"
-        mock_media.product_type = ""
-        mock_media.media_type = 8  # album
-        mock_media.caption_text = "Album post"
-        mock_media.comment_count = 0
-        mock_media.like_count = 50
-        mock_media.taken_at = None
-        mock_media.video_url = ""
-        mock_media.thumbnail_url = ""
-        mock_media.resources = [mock_resource]
-
-        post = Post.from_instagrapi_media(mock_media, "cuser", "Carousel User", "33333")
-
-        assert len(post.resources) == 1
-        assert post.resources[0].pk == "res_001"
-        assert post.resources[0].media_type == 8
-
 
 class TestComment:
     """Tests for Comment model (no 'replies' field in current contract)."""
@@ -294,42 +203,95 @@ class TestComment:
         # Comment model does NOT have a 'replies' field
         assert "replies" not in data
 
-    def test_comment_from_instagrapi_comment(self):
-        """Test Comment.from_instagrapi_comment correctly maps fields."""
-        mock_user = MagicMock()
-        mock_user.username = "commenter"
-        mock_user.full_name = "Commenter Name"
-        mock_user.profile_pic_url = "https://example.com/pic.jpg"
 
-        mock_comment = MagicMock()
-        mock_comment.pk = 12345
-        mock_comment.text = "Nice photo"
-        mock_comment.user = mock_user
-        mock_comment.created_at_utc = datetime(2024, 2, 1, 14, 30, 0)
-        mock_comment.like_count = 10
-        mock_comment.child_comment_count = 3
+class TestSafeAttr:
+    """Tests for _safe_attr helper function."""
 
-        comment = Comment.from_instagrapi_comment(mock_comment, "https://instagram.com/p/XYZ")
+    def test_safe_attr_with_key_error_returns_default(self):
+        """Test _safe_attr returns default when getattr raises KeyError."""
 
-        assert comment.id == "12345"
-        assert comment.text == "Nice photo"
-        assert comment.owner_username == "commenter"
-        assert comment.likes_count == 10
-        assert comment.replies_count == 3
+        class RaisesKeyError:
+            def __getattribute__(self, name):
+                raise KeyError(name)
 
-    def test_comment_from_instagrapi_comment_no_user(self):
-        """Test Comment.from_instagrapi_comment handles missing user gracefully."""
-        mock_comment = MagicMock(spec=[])
-        mock_comment.pk = 111
-        mock_comment.text = "Hello"
-        mock_comment.user = None
-        mock_comment.created_at_utc = None
-        mock_comment.like_count = None
-        mock_comment.child_comment_count = None
+        obj = RaisesKeyError()
+        result = _safe_attr(obj, "missing", "default_val")
 
-        comment = Comment.from_instagrapi_comment(mock_comment, "https://instagram.com/p/XYZ")
+        assert result == "default_val"
 
-        assert comment.owner_username == ""
-        assert comment.owner_full_name == ""
-        assert comment.likes_count == 0
-        assert comment.replies_count == 0
+    def test_safe_attr_with_type_error_returns_default(self):
+        """Test _safe_attr returns default when getattr raises TypeError."""
+
+        class RaisesTypeError:
+            def __getattribute__(self, name):
+                raise TypeError("type error")
+
+        obj = RaisesTypeError()
+        result = _safe_attr(obj, "field", "fallback")
+
+        assert result == "fallback"
+
+    def test_safe_attr_with_valid_attribute_returns_value(self):
+        """Test _safe_attr returns actual value when attribute exists."""
+        mock_obj = MagicMock()
+        mock_obj.field = "actual_value"
+
+        result = _safe_attr(mock_obj, "field", "default")
+
+        assert result == "actual_value"
+
+    def test_safe_attr_with_default_value_none(self):
+        """Test _safe_attr returns None as default when specified."""
+        mock_obj = MagicMock(spec=[])
+        del mock_obj.missing
+
+        result = _safe_attr(mock_obj, "missing", None)
+
+        assert result is None
+
+
+class TestPostLocation:
+    """Tests for Post.from_instaloader_post location handling."""
+
+    def test_post_from_instaloader_with_location_having_key_error(self):
+        """Test location construction with KeyError on lat still creates location dict."""
+
+        class LocationWithKeyError:
+            """Mock location that raises KeyError on lat access."""
+
+            def __getattr__(self, name):
+                if name in ("lat", "lng", "name"):
+                    raise KeyError(name)
+                raise AttributeError(name)
+
+        mock_post = MagicMock()
+        mock_post.mediaid = "12345"
+        mock_post.shortcode = "TEST123"
+        mock_post.typename = "GraphImage"
+        mock_post.caption = ""
+        mock_post.date_utc = MagicMock()
+        mock_post.likes = 10
+        mock_post.comments = 5
+        mock_post.url = "https://example.com"
+        mock_post.is_video = False
+        mock_post.resources = []
+        mock_post.caption_hashtags = []
+        mock_post.caption_mentions = []
+        mock_post.tagged_users = []
+        mock_post.sponsor_users = []
+        mock_post.view_count = 0
+        mock_post.video_play_count = 0
+        mock_post.video_view_count = 0
+        mock_post.is_sponsored = False
+        mock_post.location = LocationWithKeyError()
+
+        post = Post.from_instaloader_post(
+            mock_post,
+            username="testuser",
+            user_full_name="Test User",
+            user_id="999",
+        )
+
+        # Should not raise — KeyError in location.lat should be caught
+        assert post.location == ""
+        assert isinstance(post, Post)

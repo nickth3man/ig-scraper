@@ -93,10 +93,10 @@ def _process_single_media(
             progress=f"{index}/{total_medias}",
             shortcode=media.shortcode,
             media_pk=media.mediaid,
-            media_type=media.mediatype,
+            media_type=getattr(media, "typename", getattr(media, "mediatype", "")),
             product_type=getattr(media, "product_type", ""),
-            likes=media.likes or 0,
-            comments=media.comments or 0,
+            likes=getattr(media, "likes", 0) or 0,
+            comments=getattr(media, "comments", 0) or 0,
             target_folder=post_folder,
         ),
     )

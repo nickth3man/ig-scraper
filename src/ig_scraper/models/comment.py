@@ -27,34 +27,6 @@ class Comment:
     replies_count: int
 
     @classmethod
-    def from_instagrapi_comment(cls, comment: Any, media_url: str) -> Comment:
-        """Create Comment from instagrapi Comment object."""
-        user = getattr(comment, "user", None)
-        logger.debug(
-            "Built comment | %s",
-            format_kv(
-                raw_pk=getattr(comment, "pk", "MISSING"),
-                has_user=bool(user),
-                raw_text_len=len(getattr(comment, "text", "") or ""),
-                raw_created_at=str(getattr(comment, "created_at_utc", "MISSING")),
-                raw_like_count=getattr(comment, "like_count", "MISSING"),
-                raw_child_count=getattr(comment, "child_comment_count", "MISSING"),
-            ),
-        )
-        return cls(
-            post_url=media_url,
-            comment_url=f"{media_url}#comment-{getattr(comment, 'pk', '')}",
-            id=str(getattr(comment, "pk", "")),
-            text=getattr(comment, "text", "") or "",
-            owner_username=getattr(user, "username", "") if user else "",
-            owner_full_name=getattr(user, "full_name", "") if user else "",
-            owner_profile_pic_url=str(getattr(user, "profile_pic_url", "")) if user else "",
-            timestamp=str(getattr(comment, "created_at_utc", "")),
-            likes_count=int(getattr(comment, "like_count", 0) or 0),
-            replies_count=int(getattr(comment, "child_comment_count", 0) or 0),
-        )
-
-    @classmethod
     def from_instaloader_comment(cls, comment: Any, media_url: str) -> Comment:
         """Create Comment from instaloader Comment object."""
         user = getattr(comment, "owner", None)

@@ -12,6 +12,19 @@ from ig_scraper.logging_utils import format_kv, get_logger
 logger = get_logger("models")
 
 
+def _safe_attr(obj: Any, name: str, default: Any = None) -> Any:
+    """Get attribute from instaloader object, catching KeyError from _field().
+
+    Many instaloader Post properties (location, tagged_users, video_url, etc.)
+    use _field() internally which raises KeyError when metadata is unavailable.
+    Standard getattr() only catches AttributeError, not KeyError.
+    """
+    try:
+        return getattr(obj, name, default)
+    except (KeyError, TypeError):
+        return default
+
+
 @dataclass
 class PostResource:
     """Media resource (image/video) within a post."""
@@ -48,56 +61,13 @@ class Post:
     post_folder: str = ""
     from_url: str = ""
     view_count: int = 0
+    location: str = ""
+    tagged_users: list[str] = field(default_factory=list)
+    sponsor_users: list[str] = field(default_factory=list)
+    video_play_count: int = 0
+    video_view_count: int = 0
+    is_sponsored: bool = False
     _profile: dict[str, Any] = field(default_factory=dict, repr=False)
-
-    @classmethod
-    def from_instagrapi_media(
-        cls, media: Any, username: str, user_full_name: str, user_pk: str
-    ) -> Post:
-        """Create Post from instagrapi Media object."""
-        logger.debug(
-            "Built post | %s",
-            format_kv(
-                raw_pk=getattr(media, "pk", "MISSING"),
-                raw_code=getattr(media, "code", "MISSING"),
-                raw_media_type=type(getattr(media, "media_type", 0)).__name__,
-                raw_product_type=getattr(media, "product_type", "MISSING"),
-                raw_caption_text_len=len(getattr(media, "caption_text", "") or ""),
-                raw_taken_at_type=type(getattr(media, "taken_at", None)).__name__,
-                resources_count=len(getattr(media, "resources", [])),
-                constructed_url=f"https://www.instagram.com/{getattr(media, 'code', '')}/",
-            ),
-        )
-        kind = "reel" if getattr(media, "product_type", "") == "clips" else "p"
-        code = getattr(media, "code", "")
-        url = f"https://www.instagram.com/{kind}/{code}/"
-        resources = [
-            PostResource(
-                pk=str(getattr(r, "pk", "")),
-                media_type=int(getattr(r, "media_type", 0)),
-                thumbnail_url=str(getattr(r, "thumbnail_url", "")),
-                video_url=str(getattr(r, "video_url", "")),
-            )
-            for r in getattr(media, "resources", [])
-        ]
-        return cls(
-            id=str(getattr(media, "pk", "")),
-            pk=str(getattr(media, "pk", "")),
-            short_code=code,
-            url=url,
-            type=str(getattr(media, "product_type", "") or getattr(media, "media_type", "")) or "",
-            caption=getattr(media, "caption_text", "") or "",
-            comment_count=getattr(media, "comment_count", 0) or 0,
-            like_count=getattr(media, "like_count", 0) or 0,
-            taken_at=getattr(media, "taken_at", None),
-            owner_username=username,
-            owner_full_name=user_full_name,
-            owner_id=str(user_pk),
-            video_url=str(getattr(media, "video_url", "")),
-            thumbnail_url=str(getattr(media, "thumbnail_url", "")),
-            is_video=getattr(media, "media_type", 0) == 2,
-            resources=resources,
-        )
 
     @classmethod
     def from_instaloader_post(
@@ -107,7 +77,7 @@ class Post:
         logger.debug(
             "Built post | %s",
             format_kv(
-                raw_pk=getattr(post, "pk", "MISSING"),
+                raw_pk=getattr(post, "mediaid", "MISSING"),
                 raw_shortcode=getattr(post, "shortcode", "MISSING"),
                 raw_media_type=type(getattr(post, "media_type", 0)).__name__,
                 rawtypename=getattr(post, "typename", "MISSING"),
@@ -118,35 +88,48 @@ class Post:
         url = f"https://www.instagram.com/p/{post.shortcode}/"
         resources = [
             PostResource(
-                pk=str(getattr(r, "pk", "")),
-                media_type=int(getattr(r, "media_type", 0)),
-                thumbnail_url=str(getattr(r, "thumbnail_url", "")),
-                video_url=str(getattr(r, "video_url", "")),
+                pk=str(_safe_attr(r, "pk", "")),
+                media_type=int(_safe_attr(r, "media_type", 0)),
+                thumbnail_url=str(_safe_attr(r, "thumbnail_url", "")),
+                video_url=str(_safe_attr(r, "video_url", "")),
             )
-            for r in getattr(post, "resources", [])
+            for r in _safe_attr(post, "resources", [])
         ]
-        hashtags = [str(h) for h in getattr(post, "caption_hashtags", [])]
-        mentions = [str(m) for m in getattr(post, "caption_mentions", [])]
+        hashtags = [str(h) for h in _safe_attr(post, "caption_hashtags", [])]
+        mentions = [str(m) for m in _safe_attr(post, "caption_mentions", [])]
+        tagged_users = [str(u) for u in _safe_attr(post, "tagged_users", [])]
+        sponsor_users = [str(u) for u in _safe_attr(post, "sponsor_users", [])]
+        try:
+            location = _safe_attr(post, "location")
+            location_str = f"{location.lat},{location.lng},{location.name}" if location else ""
+        except (KeyError, TypeError):
+            location_str = ""
         return cls(
-            id=str(getattr(post, "pk", "")),
-            pk=str(getattr(post, "pk", "")),
+            id=str(getattr(post, "mediaid", "")),
+            pk=str(getattr(post, "mediaid", "")),
             short_code=post.shortcode,
             url=url,
             type=str(getattr(post, "typename", "") or getattr(post, "media_type", "")) or "",
             caption=getattr(post, "caption", "") or "",
-            comment_count=getattr(post, "comments", 0) or 0,
-            like_count=getattr(post, "likes", 0) or 0,
+            comment_count=_safe_attr(post, "comments", 0) or 0,
+            like_count=_safe_attr(post, "likes", 0) or 0,
             taken_at=getattr(post, "date_utc", None),
             owner_username=username,
             owner_full_name=user_full_name,
             owner_id=str(user_id),
-            video_url=str(getattr(post, "video_url", "")),
+            video_url=str(_safe_attr(post, "video_url", "")),
             thumbnail_url=str(getattr(post, "url", "")),
             is_video=getattr(post, "is_video", False),
             resources=resources,
             hashtags=hashtags,
             mentions=mentions,
-            view_count=getattr(post, "view_count", 0) or 0,
+            view_count=_safe_attr(post, "view_count", 0) or 0,
+            location=location_str,
+            tagged_users=tagged_users,
+            sponsor_users=sponsor_users,
+            video_play_count=_safe_attr(post, "video_play_count", 0) or 0,
+            video_view_count=_safe_attr(post, "video_view_count", 0) or 0,
+            is_sponsored=_safe_attr(post, "is_sponsored", False),
         )
 
     def to_dict(self) -> dict[str, Any]:

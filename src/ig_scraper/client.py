@@ -1,4 +1,4 @@
-"""Instagram authentication client for obtaining an authenticated instaloader Instaloader."""
+"""Instagram authentication helpers for authenticated Instaloader access."""
 
 from __future__ import annotations
 
@@ -16,9 +16,19 @@ from instaloader.exceptions import (
 
 from ig_scraper.exceptions import AuthError, IgScraperError
 from ig_scraper.logging_utils import format_kv, get_logger
+from ig_scraper.patch import apply_instaloader_patches
+from ig_scraper.session import load_cookies_from_file
 
 
+apply_instaloader_patches()
 logger = get_logger("auth")
+
+_SESSION_FILE_DIR = Path.home() / ".config" / "instaloader"
+
+
+def _session_file_for(username: str) -> Path:
+    """Return the explicit session file path for a username."""
+    return _SESSION_FILE_DIR / f"session-{username}"
 
 
 def _load_env() -> None:
@@ -29,7 +39,11 @@ def _load_env() -> None:
 
 
 def get_instaloader_client() -> Instaloader:
-    """Create and authenticate Instaloader client with fallback auth methods."""
+    """Create an authenticated Instaloader client.
+
+    Current auth order is cookie-backed session via ``cookies.txt`` when
+    ``INSTAGRAM_SESSIONID`` is set, then username/password login with session-file persistence.
+    """
     _load_env()
     env_path = Path(__file__).resolve().parents[2] / ".env"
     sessionid = os.getenv("INSTAGRAM_SESSIONID", "").strip()
@@ -59,7 +73,6 @@ def get_instaloader_client() -> Instaloader:
         ),
     )
 
-    # Instaloader automatically handles rate limiting with sleep=True
     loader = Instaloader(
         sleep=True,
         max_connection_attempts=3,
@@ -70,56 +83,70 @@ def get_instaloader_client() -> Instaloader:
     try:
         auth_method = None
         elapsed_login = 0.0
+        session_username = None
 
-        # Try session from file if sessionid provided (instaloader uses session files internally)
-        if sessionid and username:
-            session_file = Path.home() / ".config" / "instaloader" / f"session-{username}"
-            if session_file.exists():
-                try:
-                    logger.debug(
-                        "Loading session from file | %s", format_kv(session_file=session_file)
-                    )
-                    t0_login = time.perf_counter()
-                    loader.load_session_from_file(username)
-                    # Verify session is valid
-                    if not loader.test_login():
-                        raise AuthError("Loaded session is invalid")
-                    elapsed_login = round(time.perf_counter() - t0_login, 3)
-                    logger.debug(
-                        "Session file loaded and verified | %s",
-                        format_kv(elapsed_seconds=elapsed_login),
-                    )
-                    auth_method = "session_file"
-                except Exception as e:
-                    logger.info(
-                        "Session file invalid or expired | %s",
-                        format_kv(error=str(e), session_file=session_file),
-                    )
-                    # Fall through to username/password login
+        if sessionid:
+            try:
+                logger.info("Attempting cookie-backed session authentication")
+                t0_login = time.perf_counter()
 
-        # Username/password authentication
+                cookies_file = Path(__file__).resolve().parents[2] / "cookies.txt"
+                cookies = load_cookies_from_file(cookies_file) if cookies_file.exists() else {}
+                if not cookies:
+                    raise AuthError("No cookies found in cookies.txt")
+                logger.info("Loaded %d cookies from cookies.txt", len(cookies))
+
+                loader.context.update_cookies(cookies)
+
+                actual_username = loader.test_login()
+                if not actual_username:
+                    raise AuthError("Cookie-backed session is invalid or expired")
+
+                # update_cookies() doesn't set context.username, so is_logged_in stays
+                # False.  Set it explicitly (matches instaloader's __main__.py pattern).
+                loader.context.username = actual_username  # type: ignore[assignment]
+
+                session_username = actual_username
+                elapsed_login = round(time.perf_counter() - t0_login, 3)
+                logger.info(
+                    "Cookie-backed session authenticated | %s",
+                    format_kv(elapsed_seconds=elapsed_login, username=session_username),
+                )
+                auth_method = "sessionid"
+            except AuthError:
+                raise
+            except Exception as e:
+                logger.info(
+                    "Cookie-backed session authentication failed | %s",
+                    format_kv(error=str(e)),
+                )
+                if not (username and password):
+                    raise AuthError(
+                        f"Cookie-backed session authentication failed and no fallback credentials: {e}"
+                    ) from e
         if auth_method is None and username and password:
-            logger.debug("Authenticating via username/password")
+            logger.info("Authenticating via username/password")
             t0_login = time.perf_counter()
             try:
                 loader.login(username, password)
                 elapsed_login = round(time.perf_counter() - t0_login, 3)
-                logger.debug(
+                logger.info(
                     "Username/password login accepted | %s",
                     format_kv(elapsed_seconds=elapsed_login),
                 )
                 auth_method = "username/password"
-                # Save session for future use
-                loader.save_session_to_file(username)
+                loader.save_session_to_file(str(_session_file_for(username)))
                 logger.info("Session saved for future use")
             except TwoFactorAuthRequiredException as e:
-                logger.error("Two-factor authentication required but not implemented")
+                logger.error(
+                    "Two-factor authentication required | %s", format_kv(username=username)
+                )
                 raise AuthError(
                     "Two-factor authentication is not supported. "
                     "Please disable 2FA on your Instagram account or use a session file."
                 ) from e
             except BadCredentialsException as e:
-                logger.error("Invalid credentials")
+                logger.error("Invalid credentials | %s", format_kv(username=username))
                 raise AuthError(
                     "Invalid Instagram credentials. Check username and password."
                 ) from e
@@ -130,12 +157,12 @@ def get_instaloader_client() -> Instaloader:
         if auth_method is None:
             raise IgScraperError("No authentication method succeeded")
 
-        logger.debug("Validating account access")
+        profile_username = session_username or username
+        logger.info("Validating account access")
         t0_account = time.perf_counter()
-        # Verify login by loading profile
-        account = Profile.from_username(loader.context, username)
+        account = Profile.from_username(loader.context, profile_username)
         elapsed_account = round(time.perf_counter() - t0_account, 3)
-        logger.debug(
+        logger.info(
             "Profile.from_username returned | %s",
             format_kv(
                 elapsed_seconds=elapsed_account,
@@ -150,30 +177,18 @@ def get_instaloader_client() -> Instaloader:
             format_kv(username=account.username, account_id=account.userid),
         )
     except ConnectionException as exc:
-        exc_type = type(exc).__name__
         logger.debug(
-            "Auth failed | %s",
-            format_kv(
-                exc_type=exc_type,
-                exc_args=str(exc.args)[:200],
-            ),
+            "Auth failed | %s", format_kv(exc_type=type(exc).__name__, exc_args=str(exc.args)[:200])
         )
         logger.exception("Instagram connection error during authentication")
         raise AuthError(f"Instagram connection error: {exc}") from exc
     except (AuthError, IgScraperError):
         raise
     except Exception as exc:
-        exc_type = type(exc).__name__
-        exc_args_str = str(exc.args)
-        exc_args_truncated = exc_args_str[:200] if len(exc_args_str) > 200 else exc_args_str
-        sessionid_prefix = sessionid[:8] + "..." if len(sessionid) > 8 else sessionid
+        exc_args = str(exc.args)
         logger.debug(
             "Auth failed | %s",
-            format_kv(
-                exc_type=exc_type,
-                exc_args=exc_args_truncated,
-                sessionid_prefix=sessionid_prefix,
-            ),
+            format_kv(exc_type=type(exc).__name__, exc_args=exc_args[:200]),
         )
         logger.exception("Instagram authentication failed")
         raise AuthError(f"Instagram authentication failed: {exc}") from exc

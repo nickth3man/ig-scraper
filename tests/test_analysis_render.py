@@ -25,9 +25,9 @@ class TestBuildAnalysisMarkdown:
 
     def test_posts_with_profile_metadata(self):
         """Test with posts containing _profile metadata."""
-        posts = [{"_profile": {"_method": "instagrapi"}, "caption": "Test"}]
+        posts = [{"_profile": {"_method": "instaloader"}, "caption": "Test"}]
         result = build_analysis_markdown("testuser", posts, [])
-        assert "instagrapi" in result
+        assert "instaloader" in result
 
     def test_output_contains_expected_sections(self):
         """Test all expected sections are present in output."""
@@ -163,11 +163,11 @@ class TestRenderAccessLog:
     def test_access_log_with_method(self):
         """Test access log with method info."""
         stats = {
-            "profile": {"_method": "instagrapi"},
+            "profile": {"_method": "instaloader"},
             "post_count_observed": 10,
             "total_comments": 5,
         }
         lines = _render_access_log(stats)
         result = "\n".join(lines)
         assert "Access Log" in result
-        assert "instagrapi" in result
+        assert "instaloader" in result

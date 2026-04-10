@@ -1,8 +1,8 @@
 """Structured logging utilities for the ig-scraper package.
 
 By default, every run creates a timestamped log file under ``logs/`` and captures
-DEBUG-level (trace) output. The console stream handler stays at INFO so the
-terminal remains readable.
+DEBUG-level (trace) output. The console stream handler also defaults to DEBUG so
+terminal runs show the full action trail.
 """
 
 from __future__ import annotations
@@ -18,8 +18,9 @@ from ig_scraper.paths import LOGS_DIR
 
 LOGGER_NAME = "ig_scraper"
 
-_DEFAULT_CONSOLE_LEVEL = logging.INFO
+_DEFAULT_CONSOLE_LEVEL = logging.DEBUG
 _DEFAULT_FILE_LEVEL = logging.DEBUG
+_cached_log_path: Path | None = None
 
 
 def _timestamped_log_path() -> Path:
@@ -37,12 +38,13 @@ def configure_logging(
     """Configure the root ig-scraper logger.
 
     Creates two handlers:
-    - **Stream handler** (stdout) at *console_level* — keeps the terminal readable.
+    - **Stream handler** (stdout) at *console_level* — shows runtime progress in the terminal.
     - **File handler** at *file_level* — captures trace-level detail for post-mortem.
 
     When *log_file* is ``None`` a timestamped file under ``logs/`` is generated
     automatically so every run is recorded without any extra setup.
     """
+    global _cached_log_path
     logger = logging.getLogger(LOGGER_NAME)
 
     formatter = logging.Formatter(
@@ -62,7 +64,15 @@ def configure_logging(
         logger.addHandler(stream_handler)
 
     # --- file handler (DEBUG / "trace" by default) ---
-    resolved = (log_file or _timestamped_log_path()).resolve()
+    # Resolve the path once and cache it so every get_logger() call reuses the
+    # same file instead of opening a second handler with a different timestamp.
+    if log_file is not None:
+        resolved = log_file.resolve()
+    elif _cached_log_path is not None:
+        resolved = _cached_log_path
+    else:
+        resolved = _timestamped_log_path()
+        _cached_log_path = resolved
     has_file_handler = any(
         isinstance(h, logging.FileHandler) and Path(h.baseFilename).resolve() == resolved
         for h in logger.handlers

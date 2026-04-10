@@ -39,7 +39,7 @@ class TestEnvInt:
 
         with (
             patch.dict("os.environ", {"TEST_INT": "not_a_number"}),
-            caplog.at_level(logging.WARNING, logger="ig_scraper.instagrapi"),
+            caplog.at_level(logging.WARNING, logger="ig_scraper.instaloader"),
         ):
             result = _env_int("TEST_INT", 50)
             assert result == 50
@@ -73,7 +73,7 @@ class TestEnvFloat:
 
         with (
             patch.dict("os.environ", {"TEST_FLOAT": "not_a_float"}),
-            caplog.at_level(logging.WARNING, logger="ig_scraper.instagrapi"),
+            caplog.at_level(logging.WARNING, logger="ig_scraper.instaloader"),
         ):
             result = _env_float("TEST_FLOAT", 0.5)
             assert result == 0.5
@@ -90,16 +90,19 @@ class TestConfigConstants:
     """Test configuration constants."""
 
     def test_comments_page_size_default(self):
-        """Test default comments page size."""
-        assert COMMENTS_PAGE_SIZE == 250
+        """Test default comments page size when env var is absent."""
+        with patch.dict("os.environ", {}, clear=False):
+            assert _env_int("IG_COMMENTS_PAGE_SIZE_ABSENT_TEST", 250) == 250
 
     def test_request_pause_seconds_default(self):
-        """Test default request pause."""
-        assert REQUEST_PAUSE_SECONDS == 0.25
+        """Test default request pause when env var is absent."""
+        with patch.dict("os.environ", {}, clear=False):
+            assert _env_float("IG_REQUEST_PAUSE_SECONDS_ABSENT_TEST", 0.25) == 0.25
 
     def test_comment_page_retries_default(self):
-        """Test default comment page retries."""
-        assert COMMENT_PAGE_RETRIES == 3
+        """Test default comment page retries when env var is absent."""
+        with patch.dict("os.environ", {}, clear=False):
+            assert _env_int("IG_COMMENT_PAGE_RETRIES_ABSENT_TEST", 3) == 3
 
     def test_media_download_retries_default(self):
         """Test default media download retries."""
@@ -118,7 +121,7 @@ class TestSleep:
         mock_perf_counter.side_effect = [0.0, 0.25]  # Start and end times
 
         with (
-            caplog.at_level(logging.DEBUG, logger="ig_scraper.instagrapi"),
+            caplog.at_level(logging.DEBUG, logger="ig_scraper.instaloader"),
             patch.object(config, "REQUEST_PAUSE_SECONDS", 0.25),
         ):
             _sleep("test_reason")

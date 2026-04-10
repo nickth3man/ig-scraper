@@ -35,6 +35,9 @@ class TestProfileRegression:
             external_url="https://example.com",
             is_private=False,
             igtv_count=1166,
+            biography_hashtags=["test"],
+            biography_mentions=["user"],
+            business_category_name="TestCategory",
         )
         data_regression.check(profile.to_dict())
 
@@ -70,6 +73,12 @@ class TestPostRegression:
             media_files=[],
             post_folder="posts/001_REG001",
             from_url="https://www.instagram.com/reguser/",
+            location="",
+            tagged_users=[],
+            sponsor_users=[],
+            video_play_count=0,
+            video_view_count=0,
+            is_sponsored=False,
         )
         data_regression.check(post.to_dict())
 

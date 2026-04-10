@@ -6,13 +6,10 @@ from typing import Any
 
 from instaloader.exceptions import (
     ConnectionException,
-    QueryReturnedBadRequestException,
-    QueryReturnedForbiddenException,
     QueryReturnedNotFoundException,
     TooManyRequestsException,
 )
 
-from ig_scraper.config import _sleep
 from ig_scraper.logging_utils import format_kv, get_logger
 from ig_scraper.models import Comment
 
@@ -60,13 +57,9 @@ def _fetch_all_comments(client: Any, post: Any, media_url: str) -> list[dict[str
                     ),
                 )
 
-            _sleep("comment pagination backoff")
-
     except (
         ConnectionException,
         QueryReturnedNotFoundException,
-        QueryReturnedBadRequestException,
-        QueryReturnedForbiddenException,
         TooManyRequestsException,
     ) as exc:
         logger.warning(

@@ -71,7 +71,7 @@ def _render_profile_section(stats: dict[str, Any], post_count: int) -> list[str]
         f"- Observed following count: {p.get('follows_count') or p.get('followsCount') or 'See raw post/profile payloads.'}",
         f"- Observed post count: {post_count} scraped posts",
         f"- Primary formats: {', '.join(f'{n} ({c})' for n, c in fmts.most_common()) or 'unknown'}",
-        f"- Positioning: Inferred from captions/themes — {', '.join(words[:8]) or 'insufficient caption data'}",
+        f"- Positioning: Inferred from captions/themes - {', '.join(words[:8]) or 'insufficient caption data'}",
         "",
     ]
 
@@ -164,7 +164,7 @@ def _render_access_log(stats: dict[str, Any]) -> list[str]:
     return [
         "## Access Log",
         "",
-        f"- Method tested: {stats['profile'].get('_method') or 'Apify posts actor + Apify comment actor'}",
+        f"- Method tested: {stats['profile'].get('_method') or 'instaloader'}",
         f"- Result: {stats['post_count_observed']} posts and {stats['total_comments']} comments captured",
         "- Constraints: Brand/private/restricted posts may return sparse captions or no comments; raw payloads preserved for audit.",
     ]
@@ -179,7 +179,7 @@ def build_analysis_markdown(
         "# Account Analysis",
         "",
         "- Status: analyzed",
-        f"- Access: {stats['profile'].get('_method') or 'instagrapi'}",
+        f"- Access: {stats['profile'].get('_method') or 'instaloader'}",
         "",
     ]
     lines.extend(_render_profile_section(stats, stats["post_count_observed"]))

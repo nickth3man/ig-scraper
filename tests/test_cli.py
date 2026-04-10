@@ -228,7 +228,8 @@ class TestMain:
         main()
 
         mock_update_readme.assert_called_with("@user1", "failed", "error", "Test error")
-        mock_logger.exception.assert_called()
+        mock_logger.warning.assert_called()
+        mock_logger.exception.assert_not_called()
 
     @patch("ig_scraper.cli.configure_logging")
     @patch("ig_scraper.cli.parse_args")

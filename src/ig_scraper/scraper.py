@@ -6,13 +6,11 @@ import time
 from itertools import islice
 from typing import TYPE_CHECKING, Any
 
-from instaloader.exceptions import (
-    QueryReturnedBadRequestException,
-    TooManyRequestsException,
-)
+from instaloader.exceptions import TooManyRequestsException
 
 from ig_scraper.client import get_instaloader_client
 from ig_scraper.config import COMMENT_PAGE_RETRIES, REQUEST_PAUSE_SECONDS, _sleep
+from ig_scraper.exceptions import IgScraperError, is_instaloader_authorization_failure
 from ig_scraper.logging_utils import format_kv, get_logger
 from ig_scraper.media_processing import _process_single_media
 from ig_scraper.models import Profile
@@ -48,49 +46,31 @@ def _build_profile_dict(profile: Any) -> dict[str, Any]:
     return Profile.from_instaloader_profile(profile).to_dict()
 
 
-def _log_profile_fetch_attempt(
-    username: str, attempt: int, exc: Exception, wait_seconds: float
-) -> None:
-    """Log a failed profile fetch attempt."""
-    logger.warning(
-        "Profile fetch failed | %s",
-        format_kv(
-            username=username,
-            attempt=f"{attempt}/{COMMENT_PAGE_RETRIES}",
-            error=exc,
-            retry_wait_seconds=wait_seconds,
-        ),
-    )
+@retry_on(
+    ConnectionError,
+    TooManyRequestsException,
+    KeyError,
+    max_attempts=COMMENT_PAGE_RETRIES,
+    wait_base_seconds=REQUEST_PAUSE_SECONDS,
+)
+def _fetch_profile(username: str, client: Any) -> Any:
+    """Fetch profile by username with retry."""
+    from instaloader import Profile
 
-
-def _log_medias_fetch_attempt(
-    username: str, attempt: int, exc: Exception, wait_seconds: float
-) -> None:
-    """Log a failed medias fetch attempt."""
-    logger.warning(
-        "Medias fetch failed | %s",
-        format_kv(
-            username=username,
-            attempt=f"{attempt}/{COMMENT_PAGE_RETRIES}",
-            error=exc,
-            retry_wait_seconds=wait_seconds,
-        ),
-    )
+    return Profile.from_username(client.context, username)
 
 
 @retry_on(
     ConnectionError,
     TooManyRequestsException,
-    QueryReturnedBadRequestException,
+    KeyError,
     max_attempts=COMMENT_PAGE_RETRIES,
     wait_base_seconds=REQUEST_PAUSE_SECONDS,
 )
-def _fetch_profile(username: str) -> Any:
-    """Fetch profile by username with retry."""
-    client = get_instaloader_client()
-    from instaloader import Profile
-
-    return Profile.from_username(client.context, username)
+def _fetch_medias(profile_obj: Any, posts_per_profile: int) -> list[Any]:
+    """Fetch medias from profile with retry."""
+    posts_iterator = profile_obj.get_posts()
+    return _take_n(posts_iterator, posts_per_profile)
 
 
 def fetch_profile_posts_and_comments(
@@ -108,7 +88,7 @@ def fetch_profile_posts_and_comments(
     logger.info("Fetching profile info | %s", format_kv(username=username))
     t0_profile = time.perf_counter()
 
-    profile_obj = _fetch_profile(username)
+    profile_obj = _fetch_profile(username, client)
     elapsed_profile = round(time.perf_counter() - t0_profile, 3)
     logger.info("Profile.from_username returned | %s", format_kv(elapsed_seconds=elapsed_profile))
     logger.info(
@@ -125,16 +105,45 @@ def fetch_profile_posts_and_comments(
         "Fetching recent medias | %s", format_kv(username=username, amount=posts_per_profile)
     )
     t0_medias = time.perf_counter()
-
-    # Use iterator-based approach with limit
-    posts_iterator = profile_obj.get_posts()
-    medias = _take_n(posts_iterator, posts_per_profile)
-
+    try:
+        medias = _fetch_medias(profile_obj, posts_per_profile)
+    except Exception as exc:
+        if not is_instaloader_authorization_failure(exc):
+            raise
+        elapsed_medias = round(time.perf_counter() - t0_medias, 3)
+        logger.warning(
+            "Media fetch denied for profile; skipping handle | %s",
+            format_kv(
+                username=username,
+                user_id=getattr(profile_obj, "userid", "MISSING"),
+                exc_type=type(exc).__name__,
+                error=str(exc)[:200],
+                elapsed_seconds=elapsed_medias,
+            ),
+        )
+        raise IgScraperError(f"Instagram denied post access for @{username}: {exc}") from exc
     elapsed_medias = round(time.perf_counter() - t0_medias, 3)
     logger.info(
         "Profile.get_posts() returned | %s",
         format_kv(media_count=len(medias), elapsed_seconds=elapsed_medias),
     )
+    # Warn if we got fewer posts than requested (could indicate rate limit or private profile)
+    if 0 < len(medias) < posts_per_profile:
+        logger.warning(
+            "Received fewer posts than requested; possible rate limit or iterator throttle | %s",
+            format_kv(
+                username=username,
+                requested=posts_per_profile,
+                received=len(medias),
+            ),
+        )
+    # Warn for private profiles with no posts (account may not be following target)
+    if profile_obj.is_private and len(medias) == 0:
+        logger.warning(
+            "Private profile returned no posts; ensure your account follows %s | %s",
+            username,
+            format_kv(username=username),
+        )
     logger.info("Media list fetched | %s", format_kv(username=username, media_count=len(medias)))
     profile = _build_profile_dict(profile_obj)
     posts: list[dict[str, Any]] = []
@@ -143,29 +152,40 @@ def fetch_profile_posts_and_comments(
     total_medias = len(medias)
 
     for index, media in enumerate(medias, start=1):
-        post, media_comments, media_files = _process_single_media(
-            client=client,
-            media=media,
-            username=username,
-            profile_obj=profile_obj,
-            account_dir=account_dir,
-            posts_root=posts_root,
-            index=index,
-            total_medias=total_medias,
-        )
-        posts.append(post)
-        comments.extend(media_comments)
-        logger.info(
-            "Media processing complete | %s",
-            format_kv(
+        try:
+            post, media_comments, media_files = _process_single_media(
+                client=client,
+                media=media,
                 username=username,
-                progress=f"{index}/{total_medias}",
-                shortcode=media.shortcode,
-                downloaded_files=len(media_files),
-                cumulative_posts=len(posts),
-                cumulative_comments=len(comments),
-            ),
-        )
+                profile_obj=profile_obj,
+                account_dir=account_dir,
+                posts_root=posts_root,
+                index=index,
+                total_medias=total_medias,
+            )
+            posts.append(post)
+            comments.extend(media_comments)
+            logger.info(
+                "Media processing complete | %s",
+                format_kv(
+                    username=username,
+                    progress=f"{index}/{total_medias}",
+                    shortcode=media.shortcode,
+                    downloaded_files=len(media_files),
+                    cumulative_posts=len(posts),
+                    cumulative_comments=len(comments),
+                ),
+            )
+        except AttributeError as exc:
+            logger.warning(
+                "Post attribute error (possibly deleted/taken down); skipping | %s",
+                format_kv(
+                    username=username,
+                    progress=f"{index}/{total_medias}",
+                    error=str(exc)[:200],
+                ),
+            )
+            continue
         _sleep("between media iterations")
     logger.info(
         "Account scrape complete | %s",

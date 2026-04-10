@@ -1,13 +1,13 @@
 # ig-scraper
 
-Instagram scraping tool for collecting account data, posts, and comments for analysis using the [instagrapi](https://github.com/adw0rd/instagrapi) library.
+Instagram scraping tool for collecting account data, posts, and comments for analysis using the [Instaloader](https://instaloader.github.io/) library.
 
 ## Features
 
 - **Profile scraping**: Fetch user profiles with follower counts, bio, verification status
 - **Post collection**: Download media, captions, and metadata for posts
 - **Comment extraction**: Full cursor-based pagination for comment threads
-- **Media downloads**: Photos, videos, albums (carousels), and reels via instagrapi
+- **Media downloads**: Photos, videos, albums (carousels), and reels via Instaloader
 - **Analysis generation**: Automated markdown analysis of account patterns (hooks, formats, CTAs, top posts)
 - **Type-safe models**: Dataclass-based data models for Profile, Post, PostResource, and Comment
 - **Retry logic**: Exponential backoff for transient API failures
@@ -16,7 +16,7 @@ Instagram scraping tool for collecting account data, posts, and comments for ana
 ## Requirements
 
 - Python 3.12+
-- Instagram account with a valid `sessionid` cookie
+- Instagram account credentials or a valid browser-exported Instagram session cookie
 
 ## Installation
 
@@ -34,17 +34,26 @@ uv sync --group dev
 
 ## Configuration
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root. The current implementation supports either a
+cookie-backed session bootstrap or a username/password login:
 
 ```env
 INSTAGRAM_SESSIONID=your_session_id_here
+# OR
+INSTAGRAM_USERNAME=your_username
+INSTAGRAM_PASSWORD=your_password
 ```
 
-### Obtaining a Session ID
+When `INSTAGRAM_SESSIONID` is set, the scraper currently expects browser-exported cookies in
+`cookies.txt` at the repo root and uses them to seed an authenticated Instaloader session. When
+username/password credentials are provided, Instaloader logs in directly and saves a reusable
+session file under its standard session-file location.
+
+### Exporting Browser Cookies
 
 1. Log into Instagram in your browser
-2. Open Developer Tools (F12) → Application → Cookies → instagram.com
-3. Find the `sessionid` cookie and copy its value
+2. Export the Instagram cookies to a `cookies.txt` file at the repo root
+3. Set `INSTAGRAM_SESSIONID` in `.env` so the scraper enables cookie-backed session auth
 
 ### Optional Tuning Variables
 
@@ -74,14 +83,14 @@ uv run python -m ig_scraper --all
 uv run python -m ig_scraper --handles @username --max-posts-per-handle 50
 ```
 
-> **Note**: Either `--handles` or `--all` is required. The tool authenticates once per run and reuses the client.
+> **Note**: Either `--handles` or `--all` is required. The tool authenticates once per run and reuses the client for that run.
 
 ### Programmatic
 
 ```python
-from ig_scraper import get_instagram_client, fetch_profile_posts_and_comments
+from ig_scraper import fetch_profile_posts_and_comments, get_instaloader_client
 
-client = get_instagram_client()
+client = get_instaloader_client()
 profile, posts, comments = fetch_profile_posts_and_comments("username", posts_per_profile=50)
 ```
 
@@ -171,7 +180,7 @@ ig-scraper/
 │   ├── analysis_io.py           # I/O utilities + analysis constants (CTA_TOKENS, HOOK_WORDS)
 │   ├── analysis_render.py       # Markdown report builder (build_analysis_markdown)
 │   ├── cli.py                   # argparse CLI, handle loop, status tracking
-│   ├── client.py                # Session auth via instagrapi + account verification
+│   ├── client.py                # Instaloader auth bootstrap + account verification
 │   ├── comments.py              # Cursor-based comment pagination (media_comments_chunk)
 │   ├── config.py                # Environment variable overrides + rate-limit constants
 │   ├── exceptions.py            # Exception hierarchy + classify_exception()
@@ -273,14 +282,14 @@ cli.main()
         process_handle()
           ├─> clean_handle()              # Normalize @username → username
           ├─> fetch_profile_posts_and_comments()
-          │     ├─> get_instagram_client()         # Auth once per run
-          │     ├─> _fetch_user_info()             # instagrapi.user_info_by_username_v1
-          │     ├─> _fetch_user_medias()           # instagrapi.user_medias_v1
+          │     ├─> get_instaloader_client()      # Auth once per run (cookie or password)
+          │     ├─> Profile.from_username()        # Fetch profile info
+          │     ├─> profile.get_posts() → _take_n() # Fetch media list (patched doc_id)
           │     └─> for each media:
           │           _process_single_media()
-          │             ├─> _download_media()      # instagrapi.album/photo/clip/video_download
+          │             ├─> _download_media()      # instaloader download dispatch
           │             ├─> _build_post_dict()    # Post dataclass → dict
-          │             └─> _fetch_all_comments()   # Paginated via media_comments_chunk
+          │             └─> _fetch_all_comments()   # Paginated via patched get_comments()
           ├─> write_post_artifacts()     # metadata.json, comments.json, caption.txt, media/
           ├─> write_json(raw-posts.json, raw-comments.json)
           ├─> build_analysis_markdown()  # analysis.md report
@@ -289,7 +298,7 @@ cli.main()
 
 ### Authentication
 
-`client.py` loads `INSTAGRAM_SESSIONID` from `.env` and calls `instagrapi.Client.login_by_sessionid()`. It then validates the session by calling `account_info()`. All auth errors (`LoginRequired`, `ChallengeRequired`, `ClientThrottledError`, `FeedbackRequired`, `PleaseWaitFewMinutes`) are caught and re-raised as `AuthError`.
+`client.py` loads credentials from `.env` and authenticates via instaloader. Cookie-backed sessions (from `cookies.txt`) are tried first, falling back to username/password login. Monkey-patches in `patch.py` fix broken upstream endpoints for `get_posts()` and `get_comments()`.
 
 ### Retry Mechanism
 
@@ -313,10 +322,10 @@ All log lines use `format_kv()` to produce pipe-delimited `key=value` pairs for 
 
 | Package | Version | Purpose |
 |---|---|---|
-| [instagrapi](https://github.com/adw0rd/instagrapi) | ~2.1.5 | Instagram API client |
+| [instaloader](https://instaloader.github.io/) | >=4.15.1 | Instagram API client |
 | python-dotenv | >=1.2.0 | `.env` file loading |
-| Pillow | >=8.1.1 | Image processing (instagrapi dep) |
-| requests | >=2.33.0 | HTTP library (instagrapi dep) |
+| Pillow | >=8.1.1 | Image processing |
+| requests | >=2.33.0 | HTTP library |
 
 ### Development
 

@@ -138,7 +138,7 @@ def retry_on(
                     # Use classify_exception to determine if we should retry
                     # Fatal exceptions (classified as False) propagate immediately
                     if not classify_exception(exc):
-                        logger.debug(
+                        logger.warning(
                             "Fatal exception in %s (not retrying) | %s",
                             fn_name,
                             format_kv(exc_type=type(exc).__name__, exc_msg=str(exc)[:200]),
@@ -157,6 +157,10 @@ def retry_on(
                         time.sleep(wait_seconds)
             if last_exc is None:
                 raise RuntimeError(f"Unexpected: {fn_name} exhausted retries but no exception")
+            logger.warning(
+                "Retries exhausted | %s",
+                format_kv(fn_name=fn_name, attempts=max_attempts, last_error=str(last_exc)[:200]),
+            )
             raise _RetryExhaustedError(
                 f"{fn_name} failed after {max_attempts} attempts: {last_exc}"
             ) from last_exc

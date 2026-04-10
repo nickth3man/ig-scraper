@@ -36,6 +36,21 @@ def _resource_to_dict(resource: Any) -> dict[str, Any]:
     }
 
 
+def _media_type_int(media: Any) -> int:
+    """Extract numeric media type from an instaloader Post object.
+
+    Standard Post objects expose ``typename`` (GraphImage/GraphVideo/GraphSidecar).
+    Posts created via ``from_iphone_struct`` store the raw ``media_type`` in the
+    ``iphone_struct`` dict but do not expose it as a property.
+    """
+    typename_map = {"GraphImage": 1, "GraphVideo": 2, "GraphSidecar": 8}
+    typename = getattr(media, "typename", "")
+    if typename in typename_map:
+        return typename_map[typename]
+    iphone = getattr(media, "_node", {}).get("iphone_struct", {})
+    return int(iphone.get("media_type", 0) or 0)
+
+
 @retry_on(
     OSError,
     RuntimeError,
@@ -52,9 +67,9 @@ def _perform_media_download(client: Any, media: Any, target_dir: Path) -> list[s
     """
     download_kind = (
         "album"
-        if media.media_type == 8
+        if _media_type_int(media) == 8
         else "photo"
-        if media.media_type == 1
+        if _media_type_int(media) == 1
         else "clip"
         if getattr(media, "typename", "") == "GraphVideo"
         else "video"
@@ -63,7 +78,7 @@ def _perform_media_download(client: Any, media: Any, target_dir: Path) -> list[s
         "Starting media download via instaloader | %s",
         format_kv(
             shortcode=media.shortcode,
-            media_pk=media.pk,
+            media_pk=getattr(media, "pk", media.mediaid),
             download_kind=download_kind,
             target_dir=target_dir,
         ),
@@ -127,8 +142,8 @@ def _download_media(client: Any, media: Any, target_dir: Path) -> list[str]:
         "Downloading media assets | %s",
         format_kv(
             shortcode=media.shortcode,
-            media_pk=media.pk,
-            media_type=media.media_type,
+            media_pk=getattr(media, "pk", media.mediaid),
+            media_type=_media_type_int(media),
             typename=getattr(media, "typename", ""),
             max_attempts=MEDIA_DOWNLOAD_RETRIES,
             target_dir=target_dir,

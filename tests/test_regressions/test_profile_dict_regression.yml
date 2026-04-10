@@ -1,4 +1,9 @@
 biography: Testing regression
+biography_hashtags:
+- test
+biography_mentions:
+- user
+business_category_name: TestCategory
 external_url: https://example.com
 followers_count: 5000
 follows_count: 200

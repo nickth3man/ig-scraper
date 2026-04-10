@@ -8,8 +8,6 @@ from ig_scraper.exceptions import MediaDownloadError
 from ig_scraper.media_processing import _build_post_dict
 from ig_scraper.scraper import (
     _build_profile_dict,
-    _log_medias_fetch_attempt,
-    _log_profile_fetch_attempt,
 )
 
 
@@ -90,6 +88,7 @@ class TestBuildPostDict:
         """Test with mock media object (instaloader fields)."""
         mock_media = MagicMock()
         mock_media.pk = 12345
+        mock_media.mediaid = 12345
         mock_media.shortcode = "ABC123"
         mock_media.product_type = "post"
         mock_media.caption = "Test caption"
@@ -130,6 +129,7 @@ class TestBuildPostDict:
 
         mock_media = MagicMock()
         mock_media.pk = 12345
+        mock_media.mediaid = 12345
         mock_media.shortcode = "ABC123"
         mock_media.product_type = ""
         mock_media.caption = ""
@@ -160,6 +160,7 @@ class TestBuildPostDict:
         """Test post_folder is empty when account_dir is None."""
         mock_media = MagicMock()
         mock_media.pk = 1
+        mock_media.mediaid = 1
         mock_media.shortcode = "ABC123"
         mock_media.product_type = ""
         mock_media.caption = ""
@@ -185,30 +186,6 @@ class TestBuildPostDict:
         )
 
         assert result["post_folder"] == ""
-
-
-class TestLogFunctions:
-    """Tests for log functions."""
-
-    def test_log_profile_fetch_attempt(self):
-        """Test profile fetch attempt logs warning using mock."""
-        mock_logger = MagicMock()
-        with patch("ig_scraper.scraper.logger", mock_logger):
-            exc = RuntimeError("Profile fetch failed")
-            _log_profile_fetch_attempt("testuser", 1, exc, 1.0)
-            mock_logger.warning.assert_called_once()
-            call_args = mock_logger.warning.call_args[0]
-            assert "testuser" in call_args[1]
-
-    def test_log_medias_fetch_attempt(self):
-        """Test medias fetch attempt logs warning using mock."""
-        mock_logger = MagicMock()
-        with patch("ig_scraper.scraper.logger", mock_logger):
-            exc = RuntimeError("Medias fetch failed")
-            _log_medias_fetch_attempt("testuser", 2, exc, 2.0)
-            mock_logger.warning.assert_called_once()
-            call_args = mock_logger.warning.call_args[0]
-            assert "testuser" in call_args[1]
 
 
 class TestProcessSingleMedia:

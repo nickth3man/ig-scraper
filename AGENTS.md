@@ -96,15 +96,11 @@ The analysis system is split across three modules to stay under the 200-line lim
 
 ### Models (dual-constructor pattern)
 
-Each dataclass in `models/` has **two** `@classmethod` constructors:
-- `from_instaloader_*()` — used by the active code path
-- `from_instagrapi_*()` — legacy, retained for backwards compatibility
-
-All use defensive `getattr(obj, "field", default)` because the Instagram library objects aren't typed. Fields prefixed with `_` (like `_profile`, `_method`) are excluded from `to_dict()` serialization.
+See `src/ig_scraper/models/AGENTS.md` for the field-change checklist, constructor parity rules, and serialization contract.
 
 ### Authentication
 
-The backend is **instaloader** (not instagrapi — despite legacy naming). Auth priority:
+The backend is **instaloader**. Auth priority:
 1. Session file (if `INSTAGRAM_SESSIONID` + `INSTAGRAM_USERNAME` set and session file exists)
 2. Username/password login (saves session for future use)
 
@@ -124,12 +120,8 @@ Media download and comment pagination failures are caught independently in `_pro
 
 ## Testing Patterns
 
-- **Factories** — polyfactory `DataclassFactory` subclasses in `tests/factories.py` (`ProfileFactory`, `PostFactory`, `CommentFactory`, `PostResourceFactory`). Fixtures in `conftest.py` expose them.
-- **Mocking** — Instagram API objects are mocked with `MagicMock()`. Tests patch `time.sleep` and `REQUEST_PAUSE_SECONDS` to avoid real delays. Auth tests patch `_load_env` to isolate env loading.
-- **BDD** — `pytest-bdd` feature files in `tests/features/` (handle validation, analysis pipeline). Step definitions implement the Gherkin scenarios.
-- **Regression tests** — `pytest-regressions` golden files in `tests/test_regressions/` (YAML data snapshots, markdown output).
-- **Inline snapshots** — `inline-snapshot` configured with shortcuts: `--inline-snapshot=fix` to create/fix, `--inline-snapshot=review` to review.
-- **Markers** — `@pytest.mark.slow`, `@pytest.mark.integration`. Tests use `--strict-markers`.
+See `tests/AGENTS.md` for fixture/factory usage, BDD/regression/snapshot workflow, and test-specific commands.
+Repo-wide test guarantees still apply here: strict markers, 80% coverage minimum, and the `check_all.py` gate.
 
 ## CI Pipeline
 

@@ -105,8 +105,15 @@ def main() -> None:
         except (IgScraperError, OSError, RuntimeError, ConnectionError, ValueError) as exc:
             update_readme_status(handle, "failed", "error", str(exc).replace("|", "/")[:80])
             failure_count += 1
+            logger.warning(
+                "Handle failed | %s",
+                format_kv(progress=f"{handle_index}/{total_handles}", handle=handle, error=exc),
+            )
+        except Exception as exc:
+            update_readme_status(handle, "failed", "error", str(exc).replace("|", "/")[:80])
+            failure_count += 1
             logger.exception(
-                "Handle failed with traceback | %s",
+                "Handle failed with unexpected exception | %s",
                 format_kv(progress=f"{handle_index}/{total_handles}", handle=handle, error=exc),
             )
 

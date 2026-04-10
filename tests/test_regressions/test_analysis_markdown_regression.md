@@ -1,7 +1,7 @@
 # Account Analysis
 
 - Status: analyzed
-- Access: instagrapi
+- Access: instaloader
 
 ## 1. Account Profile
 
@@ -10,7 +10,7 @@
 - Observed following count: 200
 - Observed post count: 2 scraped posts
 - Primary formats: unknown (2)
-- Positioning: Inferred from captions/themes — check, out, python, project, mentor, another, coding, tip
+- Positioning: Inferred from captions/themes - check, out, python, project, mentor, another, coding, tip
 
 ## 2. Pattern Observations
 
@@ -74,6 +74,6 @@
 
 ## Access Log
 
-- Method tested: Apify posts actor + Apify comment actor
+- Method tested: instaloader
 - Result: 2 posts and 2 comments captured
 - Constraints: Brand/private/restricted posts may return sparse captions or no comments; raw payloads preserved for audit.

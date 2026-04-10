@@ -99,18 +99,8 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests that hit real APIs",
 ]
-filterwarnings = ["error", "ignore::DeprecationWarning:instagrapi.*"]
+filterwarnings = ["error"]
 
-[[tool.mypy.overrides]]
-module = [
-    "instagrapi.*",
-    "hypothesis.*",
-    "polyfactory.*",
-    "inline_snapshot.*",
-    "pytest_regressions.*",
-    "pytest_bdd.*",
-]
-ignore_missing_imports = true
 
 [tool.inline-snapshot]
 shortcuts = { fix = ["create", "fix"], review = "review" }

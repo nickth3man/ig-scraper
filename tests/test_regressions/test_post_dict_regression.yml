@@ -4,8 +4,10 @@ from_url: https://www.instagram.com/reguser/
 hashtags:
 - '#test'
 id: reg_post_001
+is_sponsored: false
 is_video: false
 like_count: 50
+location: ''
 media_files: []
 mentions:
 - '@friend'
@@ -16,9 +18,13 @@ pk: reg_post_001
 post_folder: posts/001_REG001
 resources: []
 short_code: REG001
+sponsor_users: []
+tagged_users: []
 taken_at: '2024-06-15T12:00:00'
 thumbnail_url: https://example.com/thumb.jpg
 type: image
 url: https://www.instagram.com/p/REG001/
+video_play_count: 0
 video_url: ''
+video_view_count: 0
 view_count: 0

@@ -87,8 +87,7 @@ class TestCommentToDict:
 
 
 class TestFetchAllComments:
-    @patch("ig_scraper.comments._sleep")
-    def test_single_page_no_cursor(self, mock_sleep):
+    def test_single_page_no_cursor(self):
         mock_post = MagicMock()
         mock_post.get_comments.return_value = iter(
             [
@@ -99,10 +98,8 @@ class TestFetchAllComments:
         result = _fetch_all_comments(MagicMock(), mock_post, "https://e.com/p/1")
         assert len(result) == 2
         mock_post.get_comments.assert_called_once()
-        assert mock_sleep.call_count == 2
 
-    @patch("ig_scraper.comments._sleep")
-    def test_multi_page_advances_through_iterator(self, mock_sleep):
+    def test_multi_page_advances_through_iterator(self):
         mock_post = MagicMock()
         mock_post.get_comments.return_value = iter(
             [
@@ -116,17 +113,53 @@ class TestFetchAllComments:
         assert result[0]["id"] == "1"
         assert result[2]["id"] == "3"
 
-    @patch("ig_scraper.comments._sleep")
-    def test_empty_iterator(self, mock_sleep):
+    def test_empty_iterator(self):
         mock_post = MagicMock()
         mock_post.get_comments.return_value = iter([])
         result = _fetch_all_comments(MagicMock(), mock_post, "https://e.com/p/e")
         assert result == []
-        mock_sleep.assert_not_called()
 
-    @patch("ig_scraper.comments._sleep")
-    def test_preserves_partial_on_exception(self, mock_sleep):
+    def test_preserves_partial_on_exception(self):
         mock_post = MagicMock()
         mock_post.get_comments.side_effect = Exception("instaloader error")
         result = _fetch_all_comments(MagicMock(), mock_post, "https://e.com/p/p")
         assert result == []
+
+    def test_progress_logged_at_100_comments(self):
+        """Test progress log fires at page 100 (when comment count hits 100)."""
+        from unittest.mock import call
+
+        mock_post = MagicMock()
+        comments_list = [_mock_comment(comment_id=i) for i in range(101)]
+        mock_post.get_comments.return_value = iter(comments_list)
+
+        with patch("ig_scraper.comments.logger") as mock_logger:
+            result = _fetch_all_comments(MagicMock(), mock_post, "https://e.com/p/100")
+            assert len(result) == 101
+            progress_calls = [
+                c for c in mock_logger.info.call_args_list if "Comment fetch progress" in str(c)
+            ]
+            assert len(progress_calls) == 1
+            assert "page=100" in str(progress_calls[0])
+
+    def test_retryable_exception_caught_and_partial_returned(self):
+        """Test ConnectionException is caught, partial comments returned."""
+        from instaloader.exceptions import ConnectionException
+
+        def comment_generator():
+            for i in range(5):
+                yield _mock_comment(comment_id=i)
+            raise ConnectionException("Rate limited")
+
+        mock_post = MagicMock()
+        mock_post.get_comments.return_value = comment_generator()
+
+        result = _fetch_all_comments(MagicMock(), mock_post, "https://e.com/p/retry")
+        assert len(result) == 5
+
+    def test_keyboard_interrupt_reraised(self):
+        """Test KeyboardInterrupt is re-raised and not caught by generic exception handler."""
+        mock_post = MagicMock()
+        mock_post.get_comments.side_effect = KeyboardInterrupt
+        with pytest.raises(KeyboardInterrupt):
+            _fetch_all_comments(MagicMock(), mock_post, "https://e.com/p/kbi")

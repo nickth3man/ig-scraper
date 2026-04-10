@@ -49,6 +49,9 @@ class TestProfileSnapshot:
                 "external_url": "https://example.com",
                 "is_private": False,
                 "igtv_count": 0,
+                "biography_hashtags": [],
+                "biography_mentions": [],
+                "business_category_name": "",
             }
         )
 
@@ -106,6 +109,12 @@ class TestPostSnapshot:
                 "post_folder": "",
                 "from_url": "",
                 "view_count": 0,
+                "location": "",
+                "tagged_users": [],
+                "sponsor_users": [],
+                "video_play_count": 0,
+                "video_view_count": 0,
+                "is_sponsored": False,
             }
         )
 
@@ -155,7 +164,7 @@ class TestAnalysisMarkdownSnapshot:
                 "# Account Analysis",
                 "",
                 "- Status: analyzed",
-                "- Access: instagrapi",
+                "- Access: instaloader",
                 "",
             ]
         )
