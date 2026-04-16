@@ -137,7 +137,7 @@ dev = [
     "pytest-bdd>=8.0",
     "bandit>=1.7.0",  # Security linting
     "invoke>=2.0",  # Task automation
-    "prospector[with_mypy,with_bandit]>=1.10",  # Comprehensive analysis
+    "prospector[with_mypy,with_bandit]>=1.18.0",  # Comprehensive analysis
 ]
 
 [tool.bandit]
